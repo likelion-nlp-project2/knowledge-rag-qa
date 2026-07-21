@@ -10,3 +10,5 @@ venv/
 chroma_db/
 data/*
 !data/.gitkeep
+evaluation/data/*
+!evaluation/data/.gitkeep
