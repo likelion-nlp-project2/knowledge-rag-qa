@@ -12,8 +12,9 @@ from pydantic import BaseModel
 
 from .prompts import build_messages
 
-MODEL = "gpt-4o-mini"  # 기본
-MODEL_PRO = "gpt-4o"  # 어려운 질문일 때만 generate(..., model=MODEL_PRO)
+# 모델명은 .env 에서. 없으면 아래 기본값.
+MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+MODEL_PRO = os.getenv("OPENAI_MODEL_PRO", "gpt-4o")  # generate(..., model=MODEL_PRO)
 
 
 @dataclass
@@ -88,6 +89,9 @@ def generate(
 ) -> RagResult:
     from openai import OpenAI  # 지연 임포트: 자체 점검은 SDK 없이도 돈다
 
+    if not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError("OPENAI_API_KEY 가 비어 있음 — .env 를 채울 것")
+
     completion = OpenAI().chat.completions.parse(
         model=model,
         messages=build_messages(question, chunks, mode),
@@ -122,6 +126,19 @@ def _self_check():
     # 환각 인용(존재하지 않는 id)은 걸러지고, cited_chunks는 역참조된다
     r = RagResult("a", ["msmarco_8721#1", "없는id"], True, "strict", MODEL, chunks)
     assert [c.id for c in r.cited_chunks] == ["msmarco_8721#1"]
+
+    # 키가 비어 있으면 401 대신 바로 알아듣게 터져야 함
+    saved = os.environ.pop("OPENAI_API_KEY", None)
+    try:
+        generate("q", chunks)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("빈 키면 막아야 함")
+    finally:
+        if saved:
+            os.environ["OPENAI_API_KEY"] = saved
+
     print("self-check ok")
 
 
@@ -129,8 +146,6 @@ if __name__ == "__main__":
     import sys
 
     if "--live" in sys.argv:
-        if not os.getenv("OPENAI_API_KEY"):
-            sys.exit("OPENAI_API_KEY 없음 (.env 확인)")
         model = MODEL_PRO if "--pro" in sys.argv else MODEL
         q = "How much of the Amazon rainforest is in Brazil?"
         for mode in ("strict", "lenient"):
