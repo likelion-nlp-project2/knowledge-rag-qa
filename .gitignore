@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.ipynb_checkpoints/
+.streamlit/secrets.toml
+
+# Chroma 인덱스 / 원본 데이터
+chroma_db/
+data/
