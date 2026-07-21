@@ -22,6 +22,4 @@ streamlit run app.py
 ## 브랜치
 
 - `main` — 통합
-- `dh` — 작업용
-- 'lsm` — 작업용
-- 'ryj' — 작업용
+
