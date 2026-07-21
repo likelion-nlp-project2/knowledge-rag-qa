@@ -1,7 +1,8 @@
 """RAG 생성 파트. retrieval은 아직 mock.
 
-실행: python -m rag.generate           # 자체 점검(API 키 불필요)
-      python -m rag.generate --live    # 실제 OpenAI 호출
+실행: python -m rag.generate                 # 자체 점검(API 키 불필요)
+      python -m rag.generate --live          # 실제 호출, gpt-4o-mini
+      python -m rag.generate --live --pro    # 실제 호출, gpt-4o
 """
 
 import os
@@ -11,7 +12,8 @@ from pydantic import BaseModel
 
 from .prompts import build_messages
 
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-4o-mini"  # 기본
+MODEL_PRO = "gpt-4o"  # 어려운 질문일 때만 generate(..., model=MODEL_PRO)
 
 
 @dataclass
@@ -81,11 +83,13 @@ def mock_retrieve(question: str, k: int = 3) -> list[Chunk]:
     return pool[:k]
 
 
-def generate(question: str, chunks: list[Chunk], mode: str = "strict") -> RagResult:
+def generate(
+    question: str, chunks: list[Chunk], mode: str = "strict", model: str = MODEL
+) -> RagResult:
     from openai import OpenAI  # 지연 임포트: 자체 점검은 SDK 없이도 돈다
 
     completion = OpenAI().chat.completions.parse(
-        model=MODEL,
+        model=model,
         messages=build_messages(question, chunks, mode),
         response_format=Answer,
         temperature=0,
@@ -96,7 +100,7 @@ def generate(question: str, chunks: list[Chunk], mode: str = "strict") -> RagRes
         cited_ids=[i for i in parsed.cited_ids if any(c.id == i for c in chunks)],
         answerable=parsed.answerable,
         mode=mode,
-        model=MODEL,
+        model=model,
         chunks=chunks,
     )
 
@@ -127,10 +131,11 @@ if __name__ == "__main__":
     if "--live" in sys.argv:
         if not os.getenv("OPENAI_API_KEY"):
             sys.exit("OPENAI_API_KEY 없음 (.env 확인)")
+        model = MODEL_PRO if "--pro" in sys.argv else MODEL
         q = "How much of the Amazon rainforest is in Brazil?"
         for mode in ("strict", "lenient"):
-            r = generate(q, mock_retrieve(q), mode)
-            print(f"\n--- {mode} (answerable={r.answerable}) ---\n{r.answer}")
+            r = generate(q, mock_retrieve(q), mode, model)
+            print(f"\n--- {mode} / {r.model} (answerable={r.answerable}) ---\n{r.answer}")
             print("근거:", r.cited_ids)
     else:
         _self_check()
