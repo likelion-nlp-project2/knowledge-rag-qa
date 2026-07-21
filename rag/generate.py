@@ -147,9 +147,8 @@ if __name__ == "__main__":
 
     if "--live" in sys.argv:
         model = MODEL_PRO if "--pro" in sys.argv else MODEL
-        # 세 번째 질문이 두 템플릿을 가르는 지점: mock 청크 어디에도 답이 없다.
+        # 두 번째 질문이 두 템플릿을 가르는 지점: mock 청크 어디에도 답이 없다.
         questions = [
-            ("문서로 답됨", "How much of the Amazon rainforest is in Brazil?"),
             ("문서로 답됨/한국어", "아마존 열대우림의 몇 퍼센트가 브라질에 있나요?"),
             ("문서에 없음", "When was the Amazon rainforest first mapped?"),
         ]
