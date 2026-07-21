@@ -7,24 +7,8 @@
 # ============================================
 
 def retrieve(query):
-    return [{"text": "에펠탑은 1889년 프랑스 만국박람회를 위해 지어졌다."}]
-
-def evaluate_mrr(retrieve_fn, test_queries):
-    """
-    Retrieval 평가 (MRR): 정답 문서가 몇 번째 순위에 나왔는지까지 반영
-    - 1등이면 1.0, 2등이면 0.5, 3등이면 0.33 ... 없으면 0
-    반환값: MRR 점수 (0~1 사이, 높을수록 좋음)
-    """
-    scores = []
-    for tq in test_queries:
-        docs = retrieve_fn(tq["query"])
-        rank = None
-        for i, d in enumerate(docs):
-            if tq["gold_answer"] in d["text"]:
-                rank = i + 1  # 순위는 1부터 시작
-                break
-        scores.append(1 / rank if rank else 0)
-    return sum(scores) / len(scores)
+    # 진짜 retrieve도 이 형식으로 리턴하면 됨: text, score, doc_id
+    return [{"text": "에펠탑은 1889년 프랑스 만국박람회를 위해 지어졌다.", "score": 0.8, "doc_id": "D000000"}]
 
 def generate_answer(query, context):
     return "1889년에 지어졌습니다."
