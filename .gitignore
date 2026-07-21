@@ -8,4 +8,5 @@ venv/
 
 # Chroma 인덱스 / 원본 데이터
 chroma_db/
-data/
+data/*
+!data/.gitkeep
