@@ -48,8 +48,10 @@ services:
               count: 1
               capabilities: [gpu]
     # 검색 API를 로컬에서도 확인하고 싶으면 노출(터널만 쓸 거면 불필요).
+    # 호스트 8080은 다른 프로젝트가 점유 중이라 8081로 매핑(컨테이너 내부는 8080 그대로,
+    # cloudflared는 내부망 http://api:8080 으로 붙으므로 공개 접속엔 영향 없음).
     ports:
-      - "8080:8080"
+      - "8081:8080"
 
   cloudflared:
     image: cloudflare/cloudflared:latest

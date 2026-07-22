@@ -25,9 +25,9 @@ from pydantic import BaseModel
 
 from .config import INFRA, collection_name, get_embed_model
 from .embedding import load_embedder
-from .index import connect, get_or_create_collection, retrieve
+from .index import connect, fetch_full_documents, get_or_create_collection, retrieve
 
-app = FastAPI(title="Ko-miracl 검색 API", version="1.0")
+app = FastAPI(title="Ko-miracl 검색 API", version="2.0")
 
 _state: dict = {}
 
@@ -37,17 +37,25 @@ class SearchRequest(BaseModel):
     k: int = 5
 
 
-class Hit(BaseModel):
-    corpus_id: str
-    score: float
+class DocMeta(BaseModel):
+    doc_id: str
     title: str
-    text: str
+    url: str
+    doc_type: str = ""
+    categories: str = ""
+    matched_chunks: str        # 매칭된 청크 id들, '|' join
+    n_chunks: int              # 문서 전체 청크 수
+
+
+class DocResult(BaseModel):
+    text: str                  # 문서 전체(모든 청크 이어붙임)
+    score: float               # 매칭 청크 최고 유사도
+    metadata: DocMeta
 
 
 class SearchResponse(BaseModel):
     query: str
-    model: str
-    hits: List[Hit]
+    documents: List[DocResult]
 
 
 @app.on_event("startup")
@@ -79,11 +87,13 @@ def _search(query: str, k: int) -> SearchResponse:
     if "collection" not in _state:
         raise HTTPException(503, "서버 초기화 중입니다")
     mcfg = _state["mcfg"]
-    hits = retrieve(
-        _state["collection"], _state["model"], query, mcfg.query_prefix, k=k
-    )
+    collection = _state["collection"]
+    # 1) k개 청크 검색 → 2) doc_id 취합해 각 문서 전체 청크 복원
+    hits = retrieve(collection, _state["model"], query, mcfg.query_prefix, k=k)
+    docs = fetch_full_documents(collection, hits)
     return SearchResponse(
-        query=query, model=mcfg.key, hits=[Hit(**h) for h in hits]
+        query=query,
+        documents=[DocResult(**d) for d in docs],
     )
 
 
