@@ -1,11 +1,12 @@
 # ============================================
 # Ko-miracl 기반 평가 실행 파일
 # - 데이터 로딩(rag.data)과 지표 계산(rag.metrics)은 팀 파이프라인 걸 그대로 재사용
-# - 코퍼스는 148만 개 전체를 스트리밍하는 대신, 팀이 미리 뽑아둔
-#   data/ko_miracl_subset.jsonl(정답 2,105개 전부 + hard negative 2,895개, 5,000개)을 로컬 로드
+# - 코퍼스는 148만 개 전체를 스트리밍하는 대신, extraction/build_reduced_corpus.py로 미리 만든
+#   data/ko_miracl_reduced_corpus.jsonl(BEIR 스타일 축소 코퍼스, 약 20만 청크)을 로컬 로드
 # ============================================
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -20,7 +21,12 @@ from rag.embedding import load_embedder
 from rag.index import build_collection, retrieve as rag_retrieve
 from rag.metrics import evaluate
 
-CORPUS_PATH = Path(__file__).resolve().parent.parent / "data" / "ko_miracl_subset.jsonl"
+CORPUS_PATH = Path(__file__).resolve().parent.parent / "data" / "ko_miracl_reduced_corpus.jsonl"
+
+# 스모크(SMOKE=1): 코퍼스를 gold 문서 + 네거티브 5천으로 제한해 구조만 빠르게 확인.
+# 미설정(기본): reduced corpus 전체(약 20만) 로드 = 보고용 베이스라인.
+SMOKE = bool(os.environ.get("SMOKE"))
+SMOKE_CORPUS_LIMIT = 5000
 
 cfg = GenerationConfig()
 
@@ -33,17 +39,29 @@ eval_qids = sample_pos_queries(dev_qrels, DATA, n=n_available)
 gold = build_gold(dev_qrels, DATA, eval_qids)
 
 
-def load_local_corpus(path: Path) -> tuple[dict[str, str], dict[str, str]]:
+def load_local_corpus(path, limit=None, keep_ids=None):
+    # limit: 네거티브(비정답) 문서 최대 개수(스모크용). keep_ids(정답 문서)는 limit과 무관하게 항상 포함.
     corpus_text, corpus_title = {}, {}
+    keep_ids = keep_ids or set()
+    n_neg = 0
     with open(path, encoding="utf-8") as f:
         for line in f:
             row = json.loads(line)
-            corpus_text[row[DATA.c_id]] = row[DATA.c_text]
-            corpus_title[row[DATA.c_id]] = row[DATA.c_title]
+            cid = row[DATA.c_id]
+            if cid not in keep_ids:
+                if limit is not None and n_neg >= limit:
+                    continue
+                n_neg += 1
+            corpus_text[cid] = row[DATA.c_text]
+            corpus_title[cid] = row[DATA.c_title]
     return corpus_text, corpus_title
 
 
-corpus_text, corpus_title = load_local_corpus(CORPUS_PATH)
+# 정답 문서는 스모크에서도 반드시 인덱스에 있어야 answerable 쿼리가 의미를 가짐
+gold_cids = {c for rels in gold.values() for c, s in rels.items() if s > 0}
+corpus_text, corpus_title = load_local_corpus(
+    CORPUS_PATH, limit=SMOKE_CORPUS_LIMIT if SMOKE else None, keep_ids=gold_cids
+)
 index_cids = list(corpus_text.keys())
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -63,6 +81,8 @@ def retrieve_fn(qid: str, k: int) -> list[str]:
 
 if __name__ == "__main__":
     print("평가 쿼리 개수:", len(eval_qids), "| 코퍼스 크기:", len(index_cids))
-    result = evaluate(retrieve_fn, eval_qids, gold, k_list=[1, 5, cfg.top_k], top_k=cfg.top_k)
+    # 계획서 4.3: 검색 지표는 k = 1 / 5 / 10 로 고정.
+    # (cfg.top_k=5를 쓰면 k_list=[1,5,5]가 되어 @10이 빠지고 @5가 중복됨)
+    result = evaluate(retrieve_fn, eval_qids, gold, k_list=[1, 5, 10], top_k=10)
     for name, value in result.items():
         print(f"{name}: {value:.4f}")
