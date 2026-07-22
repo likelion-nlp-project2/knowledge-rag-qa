@@ -1,8 +1,9 @@
 # ============================================
 # Generation(RAG 답변) 품질 평가 — 3층 평가 구조 (계획서 4.3)
 #   [1층] 규칙 기반 주 지표: 인용 정확성 / 환각율 / 기권 적절성  (rag/gen_metrics.py, 결정적)
-#   [2층] RAGAS 보조·참고 지표: Faithfulness / Answer Relevancy / Context Precision
-#         └ 판정 LLM이 로컬 Qwen2.5-7B라 절대값 신뢰성 제한적 → 참고용
+#   [2층] 자동 의미 지표(RAGAS 등): 보류 — 외부 강판정기(GPT-4급) 확보 시 활성화.
+#         로컬 판정기(Qwen 7B)는 신뢰성 낮음 + 파이프라인과 같은 모델이라 순환 편향 +
+#         ragas/langchain 의존성 충돌 → 이 환경 미사용. 의미 품질 판정은 3층(사람)이 담당.
 #   [3층] 사람 평가 시트 export (1·2층을 검증하는 앵커)
 #
 # 무근거 대조군(기권 적절성의 '근거 없음' 방향 측정용):
@@ -269,18 +270,13 @@ if __name__ == "__main__":
     df_rec["abstained"] = df_rec["answer"].str.contains(ABSTENTION_MARKER)
     print(df_rec.groupby("set")["abstained"].mean().round(4))
 
-    # [2층] RAGAS 보조·참고 지표 (answerable, 첫 seed) — 판정기 변동성 RAGAS_REPEATS회 평균±std
-    print("\n===== [2층] RAGAS 보조·참고 지표 (answerable, 참고용) =====")
-    answerable_rows = [r for r in records0 if r["answerable"]]
-    ragas_cols = ["faithfulness", "answer_relevancy", "context_precision"]
-    # RAGAS는 보조 지표라, 의존성(ragas/langchain) 충돌 등으로 실패해도 1·3층은 유효하게 넘어간다.
-    try:
-        ragas_runs = [run_ragas(answerable_rows)[ragas_cols].mean() for _ in range(RAGAS_REPEATS)]
-        ragas_summary = pd.concat(ragas_runs, axis=1).T.agg(["mean", "std"]).round(4)
-        print(ragas_summary)
-    except Exception as e:
-        print(f"[2층] RAGAS 스킵 (에러): {type(e).__name__}: {e}")
-        print("  → RAGAS는 보조 지표라 실패해도 1·3층 결과는 유효. ragas/langchain 의존성 정리 후 재실행.")
+    # [2층] 자동 의미 지표 — 보류(deferred).
+    # RAGAS 등 자동 의미 지표는 GPT-4급 '독립적·강한' 외부 판정기가 있어야 의미가 있다.
+    # 로컬 판정기(Qwen 7B)는 (1) 신뢰성 낮음(약한 판정) (2) 파이프라인과 같은 모델이라 순환 편향
+    # (3) ragas/langchain 의존성 충돌 → 이 환경에서는 사용하지 않는다.
+    # 의미적 품질(정확성·근거 타당성)은 3층(사람 평가)이 담당. 외부 판정기 확보 시 run_ragas()로 활성화.
+    print("\n===== [2층] 자동 의미 지표: 보류 — 의미 품질은 3층(사람 평가)이 담당 =====")
+    print("  로컬 판정기는 신뢰성·순환 편향·의존성 문제 → 외부 판정기(GPT-4급) 확보 시 활성화.")
 
     # [3층] 사람 평가 시트 (무작위·set 층화 표본)
     print("\n===== [3층] 사람 평가 시트 =====")
