@@ -39,7 +39,8 @@ qrels = pd.concat([ds_default["train"].to_pandas(), ds_default["dev"].to_pandas(
 
 pos_cids = set(qrels[qrels["score"] > 0]["corpus-id"].unique())
 neg_rows = qrels[qrels["score"] == 0][["query-id", "corpus-id"]]
-neg_cids = set(neg_rows["corpus-id"].unique())
+neg_cids = set(neg_rows["corpus-id"].unique()) - pos_cids  # 같은 문서가 다른 쿼리에선 관련(score=1)일 수 있음 -> 겹치면 pos 우선, neg에서 제외
+neg_rows = neg_rows[neg_rows["corpus-id"].isin(neg_cids)]
 
 print(f"score=1(관련) 고유 문서: {len(pos_cids)}개 (전부 포함, 순위 안 매김)")
 print(f"score=0(비관련) 후보: {len(neg_cids)}개 -> hard negative 유사도로 순위 매겨서 상위 {N_DOCS - len(pos_cids)}개 선택")
