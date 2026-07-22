@@ -8,3 +8,5 @@ torch
 transformers
 accelerate
 bitsandbytes
+fastapi
+uvicorn[standard]

@@ -1,12 +1,29 @@
-"""ChromaDB 색인/검색 (인메모리 클라이언트, 파인튜닝 비교·RAG 생성 공용)."""
+"""ChromaDB 색인/검색.
+
+- 인메모리(chromadb.Client): 파인튜닝 비교·노트북용 (build_collection)
+- 영속 서버(chromadb.HttpClient): Docker 배포·검색 API용 (connect/get_or_create_collection)
+"""
 
 from __future__ import annotations
 
 from typing import Dict, List, Optional
 
+import chromadb
 from sentence_transformers import SentenceTransformer
 
 from .embedding import embed
+
+
+def connect(host: str, port: int):
+    """영속 Chroma 서버에 연결한다 (Docker 서비스명/포트)."""
+    return chromadb.HttpClient(host=host, port=port)
+
+
+def get_or_create_collection(client, name: str):
+    """코사인 공간 컬렉션을 가져오거나 만든다 (ingest/검색 공용)."""
+    return client.get_or_create_collection(
+        name=name, metadata={"hnsw:space": "cosine"}
+    )
 
 
 def build_collection(
