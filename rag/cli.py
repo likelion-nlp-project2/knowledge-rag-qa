@@ -95,8 +95,12 @@ def run_ask(
     cfg: GenerationConfig = GenerationConfig(),
     seed: int = SEED,
     k: Optional[int] = None,
+    modes: tuple = ("strict",),
 ) -> dict:
-    """Ko-miracl dev 코퍼스 부분집합을 색인하고, 질문 하나에 대해 RAG 응답을 생성한다."""
+    """Ko-miracl dev 코퍼스 부분집합을 색인하고, 질문 하나에 대해 RAG 응답을 생성한다.
+
+    modes에 여러 개를 주면 색인/모델은 한 번만 올리고 프롬프트만 바꿔 나란히 답한다.
+    """
     random.seed(seed)
     np.random.seed(seed)
     device = _device()
@@ -117,14 +121,19 @@ def run_ask(
     )
 
     tok, llm = load_llm(cfg.llm_name)
-    result = rag_answer(question, collection, model, tok, llm, cfg.query_prefix, k or cfg.top_k)
 
-    print("① 원 질문     :", result["question"])
-    print("① 재작성 질의 :", result["rewritten"])
-    print("② 검색 결과 (score = 1 - distance):")
-    for i, c in enumerate(result["contexts"], 1):
-        print(f"   [{i}] score={c['score']:.4f} id={c['corpus_id']} | {c['title']}")
-    print("\n④ 생성 응답 :\n" + result["answer"])
+    result = None
+    for mode in modes:
+        result = rag_answer(
+            question, collection, model, tok, llm, cfg.query_prefix, k or cfg.top_k, mode
+        )
+        if mode == modes[0]:
+            print("① 원 질문     :", result["question"])
+            print("① 재작성 질의 :", result["rewritten"])
+            print("② 검색 결과 (score = 1 - distance):")
+            for i, c in enumerate(result["contexts"], 1):
+                print(f"   [{i}] score={c['score']:.4f} id={c['corpus_id']} | {c['title']}")
+        print(f"\n④ 생성 응답 [{mode}] :\n" + result["answer"])
     return result
 
 
@@ -137,13 +146,16 @@ def main() -> None:
     p_ask = sub.add_parser("ask", help="질의재작성 -> 검색 -> 생성 RAG")
     p_ask.add_argument("question")
     p_ask.add_argument("--k", type=int, default=None)
+    p_ask.add_argument("--mode", choices=("strict", "lenient"), default="strict")
+    p_ask.add_argument("--both", action="store_true", help="strict/lenient 나란히 비교")
 
     args = parser.parse_args()
     if args.cmd == "compare":
         comp = run_compare()
         print(comp.round(4))
     elif args.cmd == "ask":
-        run_ask(args.question, k=args.k)
+        modes = ("strict", "lenient") if args.both else (args.mode,)
+        run_ask(args.question, k=args.k, modes=modes)
 
 
 if __name__ == "__main__":
