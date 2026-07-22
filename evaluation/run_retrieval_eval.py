@@ -16,7 +16,7 @@ import torch
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from rag.config import DATA, GenerationConfig
-from rag.data import build_gold, load_qrels, load_queries, sample_pos_queries
+from rag.data import build_gold, collect_corpus, load_qrels, load_queries, sample_pos_queries
 from rag.embedding import load_embedder
 from rag.index import build_collection, retrieve as rag_retrieve
 from rag.metrics import evaluate
@@ -33,9 +33,10 @@ cfg = GenerationConfig()
 queries = load_queries(DATA)
 dev_qrels = load_qrels(DATA, DATA.dev_split)
 
-# dev split에서 정답 있는(score>0) 질문 전부 사용 (213개)
+# dev split에서 정답 있는(score>0) 질문. 스모크는 소량(20)만 → 코퍼스 스트리밍 시간 단축.
 n_available = dev_qrels[dev_qrels[DATA.qr_score] > 0][DATA.qr_qid].nunique()
-eval_qids = sample_pos_queries(dev_qrels, DATA, n=n_available)
+N_EVAL = 20 if SMOKE else n_available
+eval_qids = sample_pos_queries(dev_qrels, DATA, n=N_EVAL)
 gold = build_gold(dev_qrels, DATA, eval_qids)
 
 
@@ -59,9 +60,12 @@ def load_local_corpus(path, limit=None, keep_ids=None):
 
 # 정답 문서는 스모크에서도 반드시 인덱스에 있어야 answerable 쿼리가 의미를 가짐
 gold_cids = {c for rels in gold.values() for c, s in rels.items() if s > 0}
-corpus_text, corpus_title = load_local_corpus(
-    CORPUS_PATH, limit=SMOKE_CORPUS_LIMIT if SMOKE else None, keep_ids=gold_cids
-)
+if SMOKE:
+    # 로컬 파일에 의존하지 않고 HF에서 정답+네거티브만 스트리밍(몇 분 소요).
+    # VM이 재활용돼 data/*.jsonl 이 없어도 동작한다.
+    corpus_text, corpus_title = collect_corpus(DATA, gold_cids, SMOKE_CORPUS_LIMIT)
+else:
+    corpus_text, corpus_title = load_local_corpus(CORPUS_PATH, keep_ids=gold_cids)
 index_cids = list(corpus_text.keys())
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
