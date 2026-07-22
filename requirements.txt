@@ -1,2 +1,10 @@
-openai>=1.99
 python-dotenv
+chromadb>=0.5
+sentence-transformers>=3.0
+datasets
+pandas
+numpy
+torch
+transformers
+accelerate
+bitsandbytes
