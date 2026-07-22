@@ -21,12 +21,12 @@ from rag.embedding import load_embedder
 from rag.index import build_collection, retrieve as rag_retrieve
 from rag.metrics import evaluate
 
-CORPUS_PATH = Path(__file__).resolve().parent.parent / "data" / "ko_miracl_reduced_corpus.jsonl"
-
-# 스모크(SMOKE=1): 코퍼스를 gold 문서 + 네거티브 5천으로 제한해 구조만 빠르게 확인.
-# 미설정(기본): reduced corpus 전체(약 20만) 로드 = 보고용 베이스라인.
+# 스모크(SMOKE=1): 5천 subset 파일(ko_miracl_subset.jsonl)로 빠르게 3층 구조만 확인.
+# 미설정(기본): reduced corpus 전체(약 20만) = 보고용 베이스라인.
 SMOKE = bool(os.environ.get("SMOKE"))
 SMOKE_CORPUS_LIMIT = 5000
+CORPUS_FILE = "ko_miracl_subset.jsonl" if SMOKE else "ko_miracl_reduced_corpus.jsonl"
+CORPUS_PATH = Path(__file__).resolve().parent.parent / "data" / CORPUS_FILE
 
 cfg = GenerationConfig()
 
