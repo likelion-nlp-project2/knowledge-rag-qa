@@ -20,7 +20,6 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 import pandas as pd
-from datasets import Dataset
 from transformers import set_seed
 
 from rag.config import SEED
@@ -45,8 +44,8 @@ from evaluation.run_retrieval_eval import (
     queries,
 )
 
-# 스모크(SMOKE=1): 소량·단일 seed·RAGAS 1회로 3층 구조만 빠르게 확인.
-# 미설정(기본): 계획서 4.3 실제 설정(30개·seed 3개·RAGAS 3회).
+# 스모크(SMOKE=1): 소량·단일 seed로 3층 구조만 빠르게 확인.
+# 미설정(기본): 계획서 4.3 실제 설정(30개·seed 3개).
 SMOKE = bool(os.environ.get("SMOKE"))
 
 N_GEN_EVAL = 3 if SMOKE else 30    # answerable 평가 쿼리 수
@@ -159,36 +158,13 @@ def mean_std(dicts: list[dict]) -> dict:
     }
 
 
-# ---------- [2층] RAGAS 보조·참고 지표 (answerable 답변에만) ----------
-# 계획서: 판정기(로컬 7B) 변동성 확인을 위해 3회 반복해 std 보고.
-# 로컬 판정이 느리니, 시간이 부족하면 1로 줄여 평균만 봐도 된다(std는 NaN).
-RAGAS_REPEATS = 1 if SMOKE else 3
-
-
-def run_ragas(rows: list[dict]) -> pd.DataFrame:
-    from langchain_community.embeddings import HuggingFaceEmbeddings
-    from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
-    from ragas import evaluate as ragas_evaluate
-    from ragas.embeddings import LangchainEmbeddingsWrapper
-    from ragas.llms import LangchainLLMWrapper
-    from ragas.metrics import answer_relevancy, context_precision, faithfulness
-    from transformers import pipeline as hf_pipeline
-
-    # 생성에 쓴 것과 같은 tok/llm을 그대로 판정용으로 재사용 (별도 로드 안 함)
-    gen_pipeline = hf_pipeline("text-generation", model=llm, tokenizer=tok, max_new_tokens=512)
-    judge_llm = LangchainLLMWrapper(HuggingFacePipeline(pipeline=gen_pipeline))
-    judge_embeddings = LangchainEmbeddingsWrapper(HuggingFaceEmbeddings(model_name=cfg.embed_model))
-
-    dataset = Dataset.from_list(
-        [{"question": r["question"], "answer": r["answer"], "contexts": r["contexts"]} for r in rows]
-    )
-    result = ragas_evaluate(
-        dataset,
-        metrics=[faithfulness, answer_relevancy, context_precision],
-        llm=judge_llm,
-        embeddings=judge_embeddings,
-    )
-    return result.to_pandas()
+# ---------- [2층] 자동 의미 지표 — 미구현(보류) ----------
+# RAGAS 등 자동 의미 지표는 GPT-4급 '독립적·강한' 외부 판정기가 있어야 의미가 있다.
+# 로컬 판정기(Qwen 7B)는 (1) 약한 판정으로 신뢰성 낮음 (2) 파이프라인과 같은 모델이라
+# 순환 편향 (3) ragas/langchain 의존성 충돌 → 이 환경에서는 구현하지 않는다.
+# 의미적 품질(정확성·근거 타당성)은 3층(사람 평가)이 담당.
+# 외부 판정기(API) 확보 시: records0의 (question, answer, contexts)를 그대로 넘겨
+# 별도 스크립트로 Faithfulness/Answer Relevancy/Context Precision을 계산하면 된다.
 
 
 # ---------- [3층] 사람 평가 시트 ----------
@@ -250,7 +226,7 @@ if __name__ == "__main__":
     coll_unans = build_coll_unans()
 
     # [1층] 규칙 기반 주 지표를 seed별로 계산 → 평균±표준편차.
-    #  세트별 기권율·RAGAS·사람 시트는 첫 seed(records0) 답변을 대표로 사용.
+    #  세트별 기권율·사람 시트는 첫 seed(records0) 답변을 대표로 사용.
     per_seed_scores: list[dict] = []
     records0: list[dict] = []
     for i, s in enumerate(GEN_SEEDS):
@@ -270,13 +246,8 @@ if __name__ == "__main__":
     df_rec["abstained"] = df_rec["answer"].str.contains(ABSTENTION_MARKER)
     print(df_rec.groupby("set")["abstained"].mean().round(4))
 
-    # [2층] 자동 의미 지표 — 보류(deferred).
-    # RAGAS 등 자동 의미 지표는 GPT-4급 '독립적·강한' 외부 판정기가 있어야 의미가 있다.
-    # 로컬 판정기(Qwen 7B)는 (1) 신뢰성 낮음(약한 판정) (2) 파이프라인과 같은 모델이라 순환 편향
-    # (3) ragas/langchain 의존성 충돌 → 이 환경에서는 사용하지 않는다.
-    # 의미적 품질(정확성·근거 타당성)은 3층(사람 평가)이 담당. 외부 판정기 확보 시 run_ragas()로 활성화.
+    # [2층] 자동 의미 지표 — 보류. 사유·재활성화 방법은 위 '[2층]' 주석 블록 참고.
     print("\n===== [2층] 자동 의미 지표: 보류 — 의미 품질은 3층(사람 평가)이 담당 =====")
-    print("  로컬 판정기는 신뢰성·순환 편향·의존성 문제 → 외부 판정기(GPT-4급) 확보 시 활성화.")
 
     # [3층] 사람 평가 시트 (무작위·set 층화 표본)
     print("\n===== [3층] 사람 평가 시트 =====")
