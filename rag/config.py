@@ -6,7 +6,7 @@
 
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -111,6 +111,48 @@ def collection_name(model_key: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# 리랭커 레지스트리 (검색 후 재정렬 — 여러 방식 비교용)
+#
+# 검색 파이프라인은 dense top-N 청크를 뽑은 뒤 이 리랭커로 재점수한다.
+# key 로 골라 쓰며, 'none' 은 리랭커 없이 dense 순서를 유지하는 베이스라인이다.
+# 새 리랭커를 비교하려면 여기 한 줄만 추가하면 된다.
+# ---------------------------------------------------------------------------
+@dataclass
+class RerankModelConfig:
+    key: str
+    hf_id: Optional[str]              # None 이면 리랭커 없음(none)
+    kind: str = "cross-encoder"       # "none" | "cross-encoder"
+    max_seq_len: int = 512
+
+
+RERANK_MODELS: Dict[str, RerankModelConfig] = {
+    # 베이스라인
+    "none": RerankModelConfig("none", None, kind="none"),
+    # 채택 후보(기본) — bge-m3 계열 다국어 cross-encoder
+    "bge-reranker-v2-m3": RerankModelConfig(
+        "bge-reranker-v2-m3", "BAAI/bge-reranker-v2-m3"
+    ),
+    # 비교 후보
+    "bge-reranker-base": RerankModelConfig(
+        "bge-reranker-base", "BAAI/bge-reranker-base"
+    ),
+    "ko-reranker": RerankModelConfig(
+        "ko-reranker", "Dongjin-kr/ko-reranker"
+    ),
+}
+DEFAULT_RERANK_MODEL = "bge-reranker-v2-m3"
+
+
+def get_rerank_model(key: str) -> RerankModelConfig:
+    if key not in RERANK_MODELS:
+        raise KeyError(
+            f"unknown reranker {key!r}. 등록된 리랭커: {list(RERANK_MODELS)} "
+            f"(추가하려면 rag/config.py RERANK_MODELS 참고)"
+        )
+    return RERANK_MODELS[key]
+
+
+# ---------------------------------------------------------------------------
 # 인프라 설정 (환경변수로 덮어쓸 수 있게 — Docker/Cloudflare 배포용)
 # ---------------------------------------------------------------------------
 @dataclass
@@ -124,6 +166,14 @@ class InfraConfig:
     # RTX 3060(12GB) 기준 기본값. OOM 나면 낮추면 된다.
     ingest_batch: int = int(os.getenv("INGEST_BATCH", "256"))
     fp16: bool = os.getenv("FP16", "1") == "1"
+
+    # 검색 파이프라인(리랭커 + 컨텍스트 조립) 기본값 — 모두 env 로 덮어쓸 수 있다.
+    rerank_model: str = os.getenv("RERANK_MODEL", DEFAULT_RERANK_MODEL)
+    retrieve_n: int = int(os.getenv("RETRIEVE_N", "50"))          # dense 후보 청크 수
+    rerank_top_k: int = int(os.getenv("RERANK_TOP_K", "5"))       # 리랭크 후 상위 청크
+    context_window: int = int(os.getenv("CONTEXT_WINDOW", "1"))   # ±이웃 청크 수
+    per_doc_max_chunks: int = int(os.getenv("PER_DOC_MAX_CHUNKS", "3"))   # 문서당 상한
+    context_max_chunks: int = int(os.getenv("CONTEXT_MAX_CHUNKS", "8"))   # 전체 예산
 
 
 INFRA = InfraConfig()

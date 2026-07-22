@@ -36,6 +36,11 @@ services:
       - CORPUS_PATH=/app/data/ko_miracl_reduced_corpus.jsonl
       - INGEST_BATCH=${INGEST_BATCH:-256}
       - FP16=${FP16:-1}
+      # 검색 파이프라인: 기본 리랭커(요청마다 rerank 파라미터로 교체 가능) + 조립 파라미터
+      - RERANK_MODEL=${RERANK_MODEL:-bge-reranker-v2-m3}
+      - RETRIEVE_N=${RETRIEVE_N:-50}
+      - RERANK_TOP_K=${RERANK_TOP_K:-5}
+      - CONTEXT_WINDOW=${CONTEXT_WINDOW:-1}
     volumes:
       - ./data:/app/data:ro           # 서브셋 jsonl (적재 시에만 필요)
       - hf-cache:/root/.cache/huggingface   # 모델 캐시 재사용(bge-m3 재다운로드 방지)
