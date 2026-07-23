@@ -1,0 +1,42 @@
+"""사이드바: 검색·생성 옵션 컨트롤."""
+import streamlit as st
+
+from rag_engine import get_backend_health
+from schema import PipelineConfig
+
+_PROMPT_LABELS = {"fewshot": "예시 포함 (권장)", "basic": "기본"}
+
+
+def render() -> PipelineConfig:
+    """사이드바를 그리고 현재 컨트롤 값을 PipelineConfig로 반환한다."""
+    with st.sidebar:
+        st.title("⚙️ 설정")
+
+        st.subheader("검색 설정")
+        top_k_retrieval = st.slider("검색할 문서 수", 5, 50, 20)
+        top_k_context = st.slider("답변에 사용할 문서 수", 1, 10, 5)
+
+        st.subheader("답변 품질")
+        min_score = st.slider("최소 관련도 점수", 0.0, 1.0, 0.55, 0.01,
+                              help="이 점수보다 관련도가 낮은 문서는 답변에 사용하지 않습니다.")
+        use_reranker = st.checkbox("검색 결과 정밀 재정렬", value=True,
+                                   help="찾은 문서를 한 번 더 검토해 더 정확한 순서로 배열합니다.")
+        prompt_style = st.selectbox("답변 프롬프트", options=list(_PROMPT_LABELS),
+                                    format_func=_PROMPT_LABELS.get,
+                                    help="답변 생성에 사용할 프롬프트 방식을 선택합니다.")
+
+        with st.expander("ℹ️ 시스템 정보"):
+            health = get_backend_health()
+            if health:
+                st.metric("적재된 문단 수", f"{health.get('chunks', 0):,}")
+                st.caption(f"임베딩: {health.get('model')} · 리랭커: {health.get('default_reranker')}")
+            else:
+                st.warning("검색 API에 연결할 수 없습니다.")
+
+    return PipelineConfig(
+        top_k_retrieval=top_k_retrieval,
+        top_k_context=top_k_context,
+        min_score=min_score,
+        use_reranker=use_reranker,
+        prompt_style=prompt_style,
+    )

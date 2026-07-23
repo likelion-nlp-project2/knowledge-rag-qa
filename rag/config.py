@@ -56,7 +56,6 @@ class GenerationConfig:
     embed_model: str = "BAAI/bge-m3"
     query_prefix: str = ""
     passage_prefix: str = ""
-    llm_name: str = "Qwen/Qwen2.5-7B-Instruct"
     top_k: int = 5
     n_eval_queries: int = 30
     neg_pool_size: int = 3000

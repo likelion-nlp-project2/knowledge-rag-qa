@@ -27,7 +27,6 @@ from rag.data import build_gold, needed_corpus_ids, sample_pos_queries
 from rag.gen_metrics import ABSTENTION_MARKER, evaluate_generation
 from rag.generation import rag_answer
 from rag.index import build_collection
-from rag.llm import load_llm
 
 # run_retrieval_eval.py가 이미 만들어둔 코퍼스 로딩·임베딩·인덱스·모델을 그대로 재사용
 # (코퍼스 임베딩을 중복으로 다시 안 함)
@@ -73,22 +72,16 @@ unans_gold = build_gold(dev_qrels, DATA, unans_qids)
 unans_gold_cids = needed_corpus_ids(unans_gold)
 index_cids_no_gold = [c for c in index_cids if c not in unans_gold_cids]
 
-tok, llm = load_llm(cfg.llm_name)
-
-
 def _answer_one(question: str, coll, seed: int = SEED) -> dict:
-    # 재현성(계획서 4.3 신뢰성): 생성 직전 seed를 고정해 같은 입력이 항상 같은 답을 내게 한다.
-    # seed를 바꿔가며 여러 번 돌리면 생성 변동성(평균±표준편차)을 측정할 수 있다.
-    # NOTE: 완전한 결정적 생성(greedy, temperature=0)은 rag.generation.rag_answer 가 답변을
-    #       temperature=0.2로 고정 호출하기 때문에 불가. rag_answer에 temperature 인자를
-    #       추가하는 건 파이프라인 영역이라, 해당 담당에게 요청 필요(임시로 set_seed 재현으로 대체).
+    # 생성이 API(GPT-4o-mini, temperature=0) 기반이라 응답은 사실상 결정적.
+    # set_seed는 로컬 난수(검색/샘플링) 재현용으로만 남긴다.
+    # seed 루프(GEN_SEEDS)는 API 호출 변동성 측정용으로 유지하되, temperature=0에서는
+    # 답이 거의 같으므로 비용 아끼려면 GEN_SEEDS=[SEED]로 줄여도 된다.
     set_seed(seed)
     return rag_answer(
         question=question,
         collection=coll,
         embed_model=embed_model,
-        tok=tok,
-        llm=llm,
         query_prefix=cfg.query_prefix,
         k=cfg.top_k,
         mode="strict",
