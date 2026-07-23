@@ -1,196 +1,0 @@
-=== [1/4] generate basic (limit 150) ===
-2026-07-23 15:42:08.860 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
-대상 150건 / 완료 150건 / 남음 0건 → C:\Users\hayou\OneDrive\Desktop\knowledge-rag-qa\result\generations_basic.jsonl
-모델 gpt-4o-mini · 프롬프트 basic · k=3
-=== [2/4] generate fewshot (limit 150) ===
-2026-07-23 15:42:25.076 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
-대상 150건 / 완료 2건 / 남음 148건 → C:\Users\hayou\OneDrive\Desktop\knowledge-rag-qa\result\generations_fewshot.jsonl
-모델 gpt-4o-mini · 프롬프트 fewshot · k=3
-  20/148 (qid=1222)
-  40/148 (qid=1444)
-  60/148 (qid=286)
-  80/148 (qid=1322)
-  100/148 (qid=832)
-  120/148 (qid=600)
-  140/148 (qid=1143)
-  148/148 (qid=628)
-=== [3/4] ragas basic n=150 ===
-C:\Users\hayou\OneDrive\Desktop\knowledge-rag-qa\evaluation\run_ragas_eval.py:55: DeprecationWarning: Importing Faithfulness from 'ragas.metrics' is deprecated and will be removed in v1.0. Please use 'ragas.metrics.collections' instead. Example: from ragas.metrics.collections import Faithfulness
-  from ragas.metrics import Faithfulness, ResponseRelevancy
-C:\Users\hayou\OneDrive\Desktop\knowledge-rag-qa\evaluation\run_ragas_eval.py:55: DeprecationWarning: Importing ResponseRelevancy from 'ragas.metrics' is deprecated and will be removed in v1.0. Please use 'ragas.metrics.collections' instead. Example: from ragas.metrics.collections import ResponseRelevancy
-  from ragas.metrics import Faithfulness, ResponseRelevancy
-C:\Users\hayou\OneDrive\Desktop\knowledge-rag-qa\evaluation\run_ragas_eval.py:57: DeprecationWarning: LangchainLLMWrapper is deprecated and will be removed in a future version. Use llm_factory instead: from openai import OpenAI; from ragas.llms import llm_factory; llm = llm_factory('gpt-4o-mini', client=OpenAI(api_key='...'))
-  judge = LangchainLLMWrapper(ChatOpenAI(model=JUDGE_MODEL, temperature=0))
-C:\Users\hayou\OneDrive\Desktop\knowledge-rag-qa\evaluation\run_ragas_eval.py:58: DeprecationWarning: LangchainEmbeddingsWrapper is deprecated and will be removed in a future version. Use the modern embedding providers instead: embedding_factory('openai', model='text-embedding-3-small', client=openai_client) or from ragas.embeddings import OpenAIEmbeddings, GoogleEmbeddings, HuggingFaceEmbeddings
-  emb = LangchainEmbeddingsWrapper(OpenAIEmbeddings(model=JUDGE_EMBED))
-result/generations_basic.jsonl: 유효 305건 중 150건 샘플 (seed=42, judge=gpt-5.4-mini)
-Evaluating:   0%|          | 0/300 [00:00<?, ?it/s]Evaluating:   0%|          | 1/300 [00:05<25:08,  5.04s/it]Evaluating:   1%|          | 2/300 [00:06<14:42,  2.96s/it]Evaluating:   1%|1         | 4/300 [00:10<11:17,  2.29s/it]Evaluating:   3%|3         | 9/300 [00:11<04:10,  1.16it/s]Evaluating:   3%|3         | 10/300 [00:12<04:05,  1.18it/s]Evaluating:   4%|3         | 11/300 [00:14<05:26,  1.13s/it]Evaluating:   6%|5         | 17/300 [00:14<02:04,  2.27it/s]Evaluating:   7%|7         | 22/300 [00:16<01:48,  2.57it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:   8%|8         | 24/300 [00:19<02:57,  1.56it/s]Evaluating:  10%|#         | 31/300 [00:19<01:29,  3.00it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  11%|#1        | 34/300 [00:24<02:36,  1.70it/s]Evaluating:  13%|#3        | 39/300 [00:24<01:42,  2.56it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  14%|#4        | 43/300 [00:25<01:38,  2.62it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  15%|#5        | 45/300 [00:28<02:30,  1.70it/s]Evaluating:  17%|#7        | 52/300 [00:28<01:20,  3.07it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  18%|#8        | 55/300 [00:32<02:03,  1.98it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  20%|#9        | 59/300 [00:33<01:38,  2.45it/s]Evaluating:  21%|##1       | 64/300 [00:33<01:06,  3.52it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  22%|##2       | 66/300 [00:37<02:15,  1.73it/s]Evaluating:  24%|##4       | 72/300 [00:38<01:34,  2.42it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  25%|##5       | 76/300 [00:39<01:21,  2.75it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  26%|##6       | 78/300 [00:40<01:19,  2.79it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  27%|##7       | 81/300 [00:40<01:10,  3.12it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  27%|##7       | 82/300 [00:42<01:32,  2.35it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  29%|##8       | 86/300 [00:44<01:45,  2.02it/s]Evaluating:  31%|###1      | 94/300 [00:44<00:49,  4.15it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  32%|###2      | 97/300 [00:48<01:42,  1.98it/s]Evaluating:  34%|###4      | 102/300 [00:50<01:23,  2.36it/s]Evaluating:  35%|###5      | 105/300 [00:50<01:05,  2.97it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  36%|###5      | 107/300 [00:51<01:15,  2.56it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  36%|###6      | 109/300 [00:54<01:49,  1.75it/s]Evaluating:  38%|###7      | 113/300 [00:55<01:24,  2.21it/s]Evaluating:  39%|###9      | 118/300 [00:55<00:53,  3.38it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  40%|####      | 120/300 [00:56<01:04,  2.78it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  40%|####      | 121/300 [01:00<02:09,  1.39it/s]Evaluating:  43%|####3     | 129/300 [01:01<01:06,  2.58it/s]Evaluating:  44%|####3     | 131/300 [01:02<01:15,  2.23it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  44%|####4     | 132/300 [01:05<02:04,  1.35it/s]Evaluating:  45%|####5     | 136/300 [01:06<01:17,  2.13it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  47%|####7     | 142/300 [01:07<00:58,  2.72it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  48%|####7     | 143/300 [01:10<01:31,  1.72it/s]Evaluating:  50%|#####     | 151/300 [01:10<00:42,  3.52it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  51%|#####1    | 154/300 [01:13<01:06,  2.20it/s]Evaluating:  52%|#####2    | 157/300 [01:14<01:00,  2.36it/s]Evaluating:  54%|#####4    | 162/300 [01:15<00:45,  3.05it/s]Evaluating:  55%|#####4    | 164/300 [01:15<00:39,  3.43it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  55%|#####5    | 166/300 [01:17<01:02,  2.13it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  56%|#####6    | 168/300 [01:18<00:56,  2.32it/s]Evaluating:  56%|#####6    | 169/300 [01:20<01:18,  1.67it/s]Evaluating:  60%|#####9    | 179/300 [01:21<00:38,  3.14it/s]Evaluating:  60%|######    | 180/300 [01:25<01:11,  1.69it/s]Evaluating:  60%|######    | 181/300 [01:26<01:12,  1.64it/s]Evaluating:  62%|######2   | 186/300 [01:26<00:40,  2.80it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  63%|######3   | 189/300 [01:27<00:45,  2.45it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  63%|######3   | 190/300 [01:30<01:09,  1.59it/s]Evaluating:  66%|######6   | 199/300 [01:30<00:29,  3.38it/s]Evaluating:  67%|######7   | 201/300 [01:31<00:30,  3.30it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  67%|######7   | 202/300 [01:32<00:35,  2.77it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  68%|######7   | 203/300 [01:33<00:44,  2.16it/s]Evaluating:  68%|######8   | 204/300 [01:35<01:05,  1.47it/s]Evaluating:  70%|######9   | 209/300 [01:37<00:44,  2.05it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  71%|#######1  | 213/300 [01:38<00:40,  2.17it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  71%|#######1  | 214/300 [01:41<01:01,  1.41it/s]Evaluating:  74%|#######3  | 221/300 [01:41<00:26,  2.95it/s]Evaluating:  75%|#######5  | 225/300 [01:42<00:25,  2.89it/s]Evaluating:  76%|#######5  | 227/300 [01:45<00:41,  1.78it/s]Evaluating:  77%|#######7  | 232/300 [01:46<00:27,  2.44it/s]Evaluating:  78%|#######8  | 235/300 [01:47<00:21,  2.96it/s]Evaluating:  79%|#######8  | 236/300 [01:47<00:20,  3.19it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  79%|#######9  | 237/300 [01:48<00:24,  2.56it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  79%|#######9  | 238/300 [01:49<00:36,  1.68it/s]Evaluating:  80%|########  | 241/300 [01:51<00:36,  1.62it/s]Evaluating:  83%|########2 | 249/300 [01:52<00:13,  3.70it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  83%|########3 | 250/300 [01:53<00:16,  3.02it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  84%|########3 | 251/300 [01:55<00:29,  1.65it/s]Evaluating:  85%|########5 | 255/300 [01:56<00:19,  2.26it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  87%|########6 | 260/300 [01:57<00:13,  3.07it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  87%|########7 | 261/300 [01:57<00:14,  2.76it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  87%|########7 | 262/300 [01:58<00:16,  2.35it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  88%|########8 | 264/300 [01:59<00:15,  2.36it/s]Evaluating:  89%|########9 | 268/300 [02:00<00:10,  3.16it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  91%|######### | 272/300 [02:01<00:08,  3.34it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  91%|#########1| 273/300 [02:03<00:13,  1.98it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  92%|#########2| 276/300 [02:04<00:11,  2.01it/s]Evaluating:  93%|#########3| 280/300 [02:05<00:06,  2.95it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  94%|#########3| 281/300 [02:05<00:07,  2.66it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  95%|#########5| 285/300 [02:06<00:04,  3.52it/s]Evaluating:  95%|#########5| 286/300 [02:07<00:05,  2.78it/s]Evaluating:  96%|#########6| 288/300 [02:09<00:05,  2.10it/s]Evaluating:  97%|#########7| 292/300 [02:09<00:03,  2.66it/s]Evaluating:  98%|#########7| 293/300 [02:10<00:03,  2.32it/s]Evaluating:  98%|#########8| 295/300 [02:11<00:02,  2.47it/s]Evaluating:  99%|#########8| 296/300 [02:11<00:01,  2.40it/s]Evaluating:  99%|#########9| 298/300 [02:12<00:00,  3.13it/s]Evaluating: 100%|#########9| 299/300 [02:12<00:00,  2.67it/s]Evaluating: 100%|##########| 300/300 [02:12<00:00,  2.26it/s]
-건별 점수 저장: C:\Users\hayou\OneDrive\Desktop\knowledge-rag-qa\result\ragas_generations_basic_n150_seed42.csv
-
-===== 평균 (NaN 제외) =====
-faithfulness        0.9106
-answer_relevancy    0.7950
-dtype: float64
-=== [4/4] ragas fewshot n=150 ===
-C:\Users\hayou\OneDrive\Desktop\knowledge-rag-qa\evaluation\run_ragas_eval.py:55: DeprecationWarning: Importing Faithfulness from 'ragas.metrics' is deprecated and will be removed in v1.0. Please use 'ragas.metrics.collections' instead. Example: from ragas.metrics.collections import Faithfulness
-  from ragas.metrics import Faithfulness, ResponseRelevancy
-C:\Users\hayou\OneDrive\Desktop\knowledge-rag-qa\evaluation\run_ragas_eval.py:55: DeprecationWarning: Importing ResponseRelevancy from 'ragas.metrics' is deprecated and will be removed in v1.0. Please use 'ragas.metrics.collections' instead. Example: from ragas.metrics.collections import ResponseRelevancy
-  from ragas.metrics import Faithfulness, ResponseRelevancy
-C:\Users\hayou\OneDrive\Desktop\knowledge-rag-qa\evaluation\run_ragas_eval.py:57: DeprecationWarning: LangchainLLMWrapper is deprecated and will be removed in a future version. Use llm_factory instead: from openai import OpenAI; from ragas.llms import llm_factory; llm = llm_factory('gpt-4o-mini', client=OpenAI(api_key='...'))
-  judge = LangchainLLMWrapper(ChatOpenAI(model=JUDGE_MODEL, temperature=0))
-C:\Users\hayou\OneDrive\Desktop\knowledge-rag-qa\evaluation\run_ragas_eval.py:58: DeprecationWarning: LangchainEmbeddingsWrapper is deprecated and will be removed in a future version. Use the modern embedding providers instead: embedding_factory('openai', model='text-embedding-3-small', client=openai_client) or from ragas.embeddings import OpenAIEmbeddings, GoogleEmbeddings, HuggingFaceEmbeddings
-  emb = LangchainEmbeddingsWrapper(OpenAIEmbeddings(model=JUDGE_EMBED))
-result/generations_fewshot.jsonl: 유효 147건 중 147건 샘플 (seed=42, judge=gpt-5.4-mini)
-Evaluating:   0%|          | 0/294 [00:00<?, ?it/s]Evaluating:   0%|          | 1/294 [00:02<11:23,  2.33s/it]Evaluating:   1%|          | 2/294 [00:06<17:57,  3.69s/it]Evaluating:   3%|3         | 9/294 [00:08<03:09,  1.51it/s]Evaluating:   3%|3         | 10/294 [00:08<02:47,  1.70it/s]Evaluating:   4%|3         | 11/294 [00:08<02:39,  1.77it/s]Evaluating:   4%|4         | 13/294 [00:09<02:43,  1.72it/s]Evaluating:   5%|4         | 14/294 [00:12<04:59,  1.07s/it]Evaluating:   6%|6         | 19/294 [00:13<02:19,  1.97it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:   9%|8         | 25/294 [00:15<01:47,  2.51it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:   9%|8         | 26/294 [00:18<03:21,  1.33it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  12%|#1        | 35/294 [00:20<01:46,  2.43it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  12%|#2        | 36/294 [00:22<02:19,  1.84it/s]Evaluating:  14%|#3        | 40/294 [00:23<01:50,  2.30it/s]Evaluating:  16%|#5        | 46/294 [00:24<01:18,  3.15it/s]Evaluating:  16%|#5        | 47/294 [00:25<01:34,  2.62it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  16%|#6        | 48/294 [00:27<02:27,  1.67it/s]Evaluating:  19%|#8        | 55/294 [00:28<01:21,  2.95it/s]Evaluating:  19%|#9        | 56/294 [00:28<01:29,  2.66it/s]Evaluating:  20%|##        | 59/294 [00:29<01:17,  3.04it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  20%|##        | 60/294 [00:30<01:33,  2.51it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  21%|##        | 61/294 [00:32<02:39,  1.46it/s]Evaluating:  22%|##2       | 65/294 [00:33<01:47,  2.13it/s]Evaluating:  23%|##3       | 69/294 [00:34<01:31,  2.47it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  24%|##3       | 70/294 [00:36<02:10,  1.72it/s]Evaluating:  26%|##5       | 76/294 [00:37<01:16,  2.85it/s]Evaluating:  28%|##7       | 81/294 [00:37<00:52,  4.07it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  28%|##7       | 82/294 [00:39<01:14,  2.86it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  28%|##8       | 83/294 [00:42<02:38,  1.33it/s]Evaluating:  32%|###1      | 94/294 [00:44<01:11,  2.78it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  32%|###2      | 95/294 [00:46<01:34,  2.11it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  33%|###2      | 96/294 [00:47<01:46,  1.86it/s]Evaluating:  35%|###4      | 102/294 [00:48<01:06,  2.87it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  36%|###6      | 106/294 [00:49<01:09,  2.69it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  36%|###6      | 107/294 [00:51<01:36,  1.93it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  39%|###8      | 114/294 [00:52<00:55,  3.24it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  40%|###9      | 117/294 [00:53<00:51,  3.44it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  40%|####      | 118/294 [00:53<00:58,  2.99it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  41%|####      | 120/294 [00:54<01:00,  2.89it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  41%|####1     | 121/294 [00:56<01:44,  1.66it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  44%|####3     | 128/294 [00:57<00:52,  3.18it/s]Evaluating:  44%|####3     | 129/294 [00:58<00:55,  2.97it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  44%|####4     | 130/294 [00:58<00:59,  2.75it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  45%|####4     | 131/294 [01:00<01:33,  1.74it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  45%|####5     | 133/294 [01:01<01:40,  1.61it/s]Evaluating:  48%|####7     | 140/294 [01:02<00:50,  3.03it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  49%|####8     | 143/294 [01:03<00:45,  3.33it/s]Evaluating:  50%|####9     | 146/294 [01:04<00:40,  3.61it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  51%|#####     | 149/294 [01:05<00:48,  2.99it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  51%|#####1    | 151/294 [01:07<01:08,  2.08it/s]Evaluating:  52%|#####2    | 154/294 [01:09<01:08,  2.04it/s]Evaluating:  54%|#####4    | 159/294 [01:10<00:48,  2.79it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  55%|#####5    | 162/294 [01:10<00:43,  3.05it/s]Evaluating:  56%|#####6    | 166/294 [01:10<00:29,  4.32it/s]Evaluating:  57%|#####6    | 167/294 [01:11<00:37,  3.37it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  57%|#####7    | 168/294 [01:13<01:04,  1.95it/s]Evaluating:  59%|#####8    | 172/294 [01:16<01:07,  1.81it/s]Evaluating:  60%|######    | 177/294 [01:16<00:37,  3.12it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  61%|######    | 179/294 [01:17<00:42,  2.72it/s]Evaluating:  62%|######1   | 181/294 [01:19<01:03,  1.78it/s]Evaluating:  63%|######2   | 184/294 [01:20<00:51,  2.12it/s]Evaluating:  63%|######3   | 186/294 [01:20<00:40,  2.68it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  64%|######4   | 189/294 [01:21<00:35,  2.99it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  65%|######4   | 190/294 [01:22<00:39,  2.67it/s]Evaluating:  66%|######5   | 193/294 [01:23<00:42,  2.37it/s]Evaluating:  67%|######7   | 197/294 [01:25<00:44,  2.19it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  68%|######8   | 200/294 [01:27<00:44,  2.11it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  69%|######9   | 204/294 [01:28<00:38,  2.35it/s]Evaluating:  70%|#######   | 207/294 [01:29<00:30,  2.83it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  71%|#######   | 208/294 [01:30<00:36,  2.37it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  72%|#######2  | 213/294 [01:30<00:23,  3.45it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  73%|#######3  | 215/294 [01:31<00:24,  3.24it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  73%|#######3  | 216/294 [01:32<00:34,  2.29it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  74%|#######4  | 219/294 [01:34<00:36,  2.08it/s]Evaluating:  76%|#######6  | 224/294 [01:34<00:18,  3.70it/s]Evaluating:  77%|#######6  | 226/294 [01:34<00:15,  4.37it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  78%|#######7  | 228/294 [01:40<00:57,  1.15it/s]Evaluating:  81%|########  | 238/294 [01:40<00:19,  2.94it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  82%|########1 | 241/294 [01:45<00:31,  1.70it/s]Evaluating:  84%|########4 | 248/294 [01:46<00:17,  2.60it/s]Evaluating:  85%|########5 | 250/294 [01:46<00:15,  2.81it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  86%|########5 | 252/294 [01:50<00:26,  1.58it/s]Evaluating:  88%|########8 | 260/294 [01:50<00:11,  3.03it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  90%|########9 | 264/294 [01:52<00:10,  2.97it/s]LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
-Evaluating:  90%|######### | 266/294 [01:55<00:14,  1.87it/s]Evaluating:  92%|#########2| 271/294 [01:55<00:08,  2.78it/s]Evaluating:  94%|#########3| 275/294 [01:57<00:07,  2.67it/s]Evaluating:  94%|#########4| 277/294 [02:01<00:11,  1.54it/s]Evaluating:  97%|#########7| 286/294 [02:02<00:03,  2.43it/s]Evaluating:  98%|#########7| 287/294 [02:03<00:03,  2.31it/s]Evaluating: 100%|##########| 294/294 [02:05<00:00,  2.83it/s]Evaluating: 100%|##########| 294/294 [02:05<00:00,  2.35it/s]
-건별 점수 저장: C:\Users\hayou\OneDrive\Desktop\knowledge-rag-qa\result\ragas_generations_fewshot_n147_seed42.csv
-
-===== 평균 (NaN 제외) =====
-faithfulness        0.9021
-answer_relevancy    0.7974
-dtype: float64
-=== ALL DONE ===

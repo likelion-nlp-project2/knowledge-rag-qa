@@ -15,5 +15,3 @@ data/*.jsonl
 
 # 실험 결과물 (generate_answers.py / run_ragas_eval.py 산출물) — 각자 로컬에서 재생성
 result/
-
-
