@@ -221,6 +221,7 @@ def run_ragas(records: list[dict], seed: int) -> pd.DataFrame:
     from ragas import EvaluationDataset
     from ragas import evaluate as ragas_evaluate
     from ragas.metrics import Faithfulness, ResponseRelevancy
+    # from ragas.metrics import LLMContextPrecisionWithReference, LLMContextRecall  # reference 준비되면 주석 해제
 
     targets = [
         r for r in records
@@ -236,6 +237,9 @@ def run_ragas(records: list[dict], seed: int) -> pd.DataFrame:
                 "user_input": r["question"],
                 "response": r["answer"],
                 "retrieved_contexts": r["contexts"],
+                # TODO: 도현님 정답 답변 레이블 데이터셋 준비되면 여기에 "reference" 키로
+                # 정답 답변 텍스트를 채워 넣을 것 (r["reference"] 등). 그러면 아래
+                # Context Precision/Recall도 metrics 리스트에 추가해 활성화 가능.
             }
             for r in targets
         ]
@@ -245,6 +249,13 @@ def run_ragas(records: list[dict], seed: int) -> pd.DataFrame:
         metrics=[
             Faithfulness(llm=judge_llm),
             ResponseRelevancy(llm=judge_llm, embeddings=judge_emb),
+            # ── 아래 2개는 ground_truth(정답 답변 텍스트)가 있어야 계산됨 ──
+            # Ko-miracl 자체엔 정답 문서 id만 있고 정답 답변 텍스트가 없어서 지금은 비활성.
+            # 도현님이 상위 LLM API로 레이블(정답 답변) 데이터셋을 만들면:
+            #   1. EvaluationDataset 각 항목에 "reference": r["reference"] 추가
+            #   2. 아래 두 줄 주석 해제
+            # LLMContextPrecisionWithReference(llm=judge_llm),  # 관련 문서가 상위 랭크에 오는지
+            # LLMContextRecall(llm=judge_llm),                  # 정답 근거가 검색된 문서에 있는지
         ],
     )
     df = result.to_pandas()
