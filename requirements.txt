@@ -12,6 +12,8 @@ huggingface-hub>=0.24,<1.0
 datasets==2.21.0
 pandas
 numpy<2
+# scipy>=1.14 는 numpy>=2 를 요구해서 numpy<2 와 충돌한다(datasets 스트리밍 로드 시 AttributeError).
+scipy<1.14
 torch
 fastapi
 uvicorn[standard]
