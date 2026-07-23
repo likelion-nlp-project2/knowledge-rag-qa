@@ -13,17 +13,29 @@ def render() -> PipelineConfig:
         st.title("⚙️ 설정")
 
         st.subheader("검색 설정")
-        top_k_retrieval = st.slider("검색할 문서 수", 5, 50, 20)
-        top_k_context = st.slider("답변에 사용할 문서 수", 1, 10, 5)
+        top_k_retrieval = st.slider(
+            "검색할 문서 수", 5, 50, 20,
+            help="질문과 관련해 1차로 찾아올 문서 개수입니다. "
+                 "많이 찾을수록 놓치는 문서가 줄지만 검색이 느려질 수 있습니다.")
+        top_k_context = st.slider(
+            "답변에 사용할 문서 수", 1, 10, 5,
+            help="찾은 문서 중 실제로 답변 작성에 참고할 상위 문서 개수입니다. "
+                 "많을수록 근거가 풍부해지지만 응답이 느려지고 비용이 늘어납니다.")
 
         st.subheader("답변 품질")
-        min_score = st.slider("최소 관련도 점수", 0.0, 1.0, 0.55, 0.01,
-                              help="이 점수보다 관련도가 낮은 문서는 답변에 사용하지 않습니다.")
-        use_reranker = st.checkbox("검색 결과 정밀 재정렬", value=True,
-                                   help="찾은 문서를 한 번 더 검토해 더 정확한 순서로 배열합니다.")
-        prompt_style = st.selectbox("답변 프롬프트", options=list(_PROMPT_LABELS),
-                                    format_func=_PROMPT_LABELS.get,
-                                    help="답변 생성에 사용할 프롬프트 방식을 선택합니다.")
+        min_score = st.slider(
+            "최소 관련도 점수", 0.0, 1.0, 0.55, 0.01,
+            help="이 점수보다 관련도가 낮은 문서는 답변에 사용하지 않습니다. "
+                 "높이면 더 확실한 근거만 쓰는 대신 '찾을 수 없음' 답변이 늘어납니다.")
+        use_reranker = st.checkbox(
+            "검색 결과 정밀 재정렬", value=True,
+            help="찾은 문서를 한 번 더 검토해 더 정확한 순서로 배열합니다. "
+                 "끄면 빨라지지만 관련 문서가 뒤로 밀릴 수 있습니다.")
+        prompt_style = st.selectbox(
+            "답변 프롬프트", options=list(_PROMPT_LABELS),
+            format_func=_PROMPT_LABELS.get,
+            help="'예시 포함'은 모범 답변 예시를 함께 제시해 인용·거절 형식을 더 잘 지키고, "
+                 "'기본'은 지시문만 사용해 가볍고 빠릅니다.")
 
         with st.expander("ℹ️ 시스템 정보"):
             health = get_backend_health()
