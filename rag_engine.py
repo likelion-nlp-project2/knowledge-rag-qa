@@ -36,6 +36,19 @@ def rewrite_query(question: str) -> str:
     return _chat(system, user, max_tokens=64, temperature=0.0)
 
 
+def hyde_rewrite(question: str) -> str:
+    """HyDE: 질문에 대한 가상의 답변 문서를 LLM으로 생성해 검색 질의로 쓴다 (rag/generation.py와 동일 방식)."""
+    system = ("당신은 위키백과 스타일의 백과사전 문서를 작성하는 어시스턴트입니다. "
+              "사용자의 질문에 대한 답을 이미 안다고 가정하고, 그 답이 담긴 위키백과 문단을 "
+              "2~4문장으로 작성하세요. 실제로 맞는 답인지 모르더라도 사실처럼 서술하고, "
+              "'모르겠다'거나 질문을 되묻지 마세요. 다른 설명 없이 문단만 출력하세요.")
+    user = f"질문: {question}\n가상 답변 문단:"
+    return _chat(system, user, max_tokens=200, temperature=0.0)
+
+
+REWRITE_FNS = {"none": None, "keyword": rewrite_query, "hyde": hyde_rewrite}
+
+
 # ── ④ 프롬프트 생성 ──
 # 고정 필수 규칙: ① 참고 문서만을 기반으로 답변 ② 문서에 없으면 찾을 수 없다고만 답변
 SYSTEM_GEN = ("당신은 한국어로 답하는 QA assistant입니다. "
@@ -148,8 +161,9 @@ def run_pipeline(query: str, cfg: PipelineConfig) -> RAGResponse:
     times = {}
 
     t0 = time.perf_counter()
+    rewrite_fn = REWRITE_FNS.get(cfg.rewrite_mode)
     try:
-        rq = rewrite_query(query)
+        rq = rewrite_fn(query) if rewrite_fn else None
     except requests.RequestException:
         rq = None   # LLM이 죽어 있어도 검색까지는 보여준다
     times["rewrite"] = round(time.perf_counter() - t0, 3)
