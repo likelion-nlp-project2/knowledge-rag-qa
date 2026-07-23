@@ -17,3 +17,5 @@ torch
 bitsandbytes==0.43.3
 fastapi
 uvicorn[standard]
+ragas
+langchain-community
