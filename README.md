@@ -41,9 +41,9 @@
 - **평가:** BEIR 스타일 랭킹 평가(Recall/MRR/nDCG/Hit@k)로 검색 품질을 생성과 분리해 측정.
 
 ### 2.2 이번 프로젝트의 Baseline
-- **Primary baseline: 사전학습 임베딩 + Chroma(cosine) 검색 + Qwen2.5-7B-Instruct 근거 프롬프트 생성**
+- **Primary baseline: 사전학습 임베딩 + Chroma(cosine) 검색 + GPT-4o-mini 근거 프롬프트 생성**
   1. 사전학습 임베딩(예: `BAAI/bge-m3`)으로 코퍼스를 색인하고, **원 질문 그대로** top-k 검색
-  2. 검색 문서를 프롬프트에 넣어 Qwen2.5-7B-Instruct(4bit)로 한국어 답변 생성 — 질의 재작성·파인튜닝 없음
+  2. 검색 문서를 프롬프트에 넣어 GPT-4o-mini(API)로 한국어 답변 생성 — 질의 재작성·파인튜닝 없음
   - 실행: `python -m rag.cli ask "질문"`
 - **선정 이유:** (a) 재현이 쉬워 **공정한 비교 기준**이 되며, (b) 우리가 개선하려는 지점(구어·모호 질문의 검색 미스, 도메인 미정합 리트리버, 근거 무시·환각)이 구조적으로 드러난다.
 - **(참고용 하한 baseline)** 검색 없이 LLM 단독 응답 — RAG의 근거·출처 효과와 필요성을 대비하는 용도.
@@ -56,7 +56,7 @@
 **Query-rewritten · Finetuned-retriever · Grounded-prompted RAG** — baseline 파이프라인을 유지하면서 세 지점을 개선해 결합한다.
 1. **질의 재작성:** LLM으로 모호·구어 질문을 핵심 개체·키워드 중심의 검색친화 질의로 재작성한 뒤 검색에 사용.
 2. **리트리버 파인튜닝:** (query, 정답문서) 쌍을 in-batch negative 대조학습(MultipleNegativesRankingLoss)으로 학습해 대상 도메인·언어에 정합. 파인튜닝 **전/후를 같은 평가셋으로 비교**한다.
-3. **근거 기반 프롬프팅:** 검색 문서만 근거로 `[문서 n]` 인용을 강제하고, 근거가 부재할 때의 대응 전략(strict = 근거 없으면 기권, lenient = 일반 지식으로 보완하되 그 부분을 명시)을 함께 둔다.
+3. **근거 기반 프롬프팅:** 참고 문서만을 기반으로 답하도록 고정하고 `[문서 n]` 인용을 강제하며, 근거가 부재하면 '제공된 문서에서 찾을 수 없습니다'로만 기권하게 한다.
 
 ### 3.2 Baseline 대비 무엇이 다른가
 | 구분 | Baseline | Proposed (Rewrite + Finetune + Grounded) |
@@ -64,13 +64,13 @@
 | 질의 처리 | 원 질문 그대로 검색 | LLM 질의 재작성 후 검색 |
 | 리트리버 | 사전학습 임베딩 고정 | (query, 정답) 대조학습 파인튜닝 |
 | 근거 사용 | 문서 단순 concat, 인용 없음 | `[문서 n]` 인용 강제 |
-| 근거 부재 대응 | 자유 생성(환각 위험) | strict 기권 / lenient 보완 명시 |
+| 근거 부재 대응 | 자유 생성(환각 위험) | 기권 고정('제공된 문서에서 찾을 수 없습니다') |
 | 평가 | 생성 결과만 정성 | 검색(Recall/MRR/nDCG/Hit) + 생성 **분리 평가** |
 
 ### 3.3 Dataset & Preprocessing
 - **사용 데이터셋: Ko-miracl** (`taeminlee/Ko-miracl`, 한국어, BEIR 스타일)
   - `queries`(`_id`, `text`) + `qrels`(`query-id`, `corpus-id`, `score>0`=정답) + `corpus`(`_id`, `title`, `text`), train / dev split
-  - 생성 임베딩 `BAAI/bge-m3`, 리트리버 파인튜닝 베이스 `jhgan/ko-sroberta-multitask`, 생성 LLM `Qwen/Qwen2.5-7B-Instruct`(4bit)
+  - 생성 임베딩 `BAAI/bge-m3`, 리트리버 파인튜닝 베이스 `jhgan/ko-sroberta-multitask`, 생성 LLM `gpt-4o-mini`(API)
 - **데이터 특성**
   - 코퍼스가 대규모(약 149만 청크)라 **전량 색인 불가** → 정답 문서 + 네거티브 풀만 스트리밍 수집
   - qrels의 관계 분포가 **long-tail**, 질의당 정답은 소수이고 대부분 문서는 비정답(NA)

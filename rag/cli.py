@@ -28,7 +28,6 @@ from .embedding import load_embedder
 from .finetune import build_training_examples, finetune
 from .generation import rag_answer
 from .index import build_collection, retrieve
-from .llm import load_llm
 from .metrics import evaluate
 
 
@@ -120,12 +119,10 @@ def run_ask(
         passage_prefix=cfg.passage_prefix, batch_size=cfg.batch_size,
     )
 
-    tok, llm = load_llm(cfg.llm_name)
-
     result = None
     for mode in modes:
         result = rag_answer(
-            question, collection, model, tok, llm, cfg.query_prefix, k or cfg.top_k, mode
+            question, collection, model, cfg.query_prefix, k or cfg.top_k, mode
         )
         if mode == modes[0]:
             print("① 원 질문     :", result["question"])
@@ -146,16 +143,13 @@ def main() -> None:
     p_ask = sub.add_parser("ask", help="질의재작성 -> 검색 -> 생성 RAG")
     p_ask.add_argument("question")
     p_ask.add_argument("--k", type=int, default=None)
-    p_ask.add_argument("--mode", choices=("strict", "lenient"), default="strict")
-    p_ask.add_argument("--both", action="store_true", help="strict/lenient 나란히 비교")
 
     args = parser.parse_args()
     if args.cmd == "compare":
         comp = run_compare()
         print(comp.round(4))
     elif args.cmd == "ask":
-        modes = ("strict", "lenient") if args.both else (args.mode,)
-        run_ask(args.question, k=args.k, modes=modes)
+        run_ask(args.question, k=args.k)
 
 
 if __name__ == "__main__":

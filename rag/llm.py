@@ -1,46 +1,48 @@
-"""Qwen2.5-Instruct 4bit 로드 + chat 헬퍼 (한국어 지원 생성 LLM)."""
+"""생성 LLM 호출 (OpenAI 호환 chat API — 기본 GPT-4o-mini).
+
+로컬 모델 로드 없이 API만 호출한다. 설정은 환경변수로:
+  OPENAI_API_KEY : API 키 (필수)
+  LLM_API_URL    : 기본 https://api.openai.com/v1 (호환 서버로 교체 가능)
+  LLM_MODEL      : 기본 gpt-4o-mini (저비용 생성 담당)
+
+temperature 기본 0 — 결정적 응답으로 불필요한 재시도를 막는다(비용 절약).
+"""
 
 from __future__ import annotations
 
-from typing import Tuple
+import os
+import time
 
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+import requests
+from dotenv import load_dotenv
 
+load_dotenv()   # import 순서와 무관하게 .env 를 먼저 읽는다
 
-def load_llm(model_name: str) -> Tuple[AutoTokenizer, AutoModelForCausalLM]:
-    bnb = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
-        bnb_4bit_use_double_quant=True,
-    )
-    tok = AutoTokenizer.from_pretrained(model_name)
-    llm = AutoModelForCausalLM.from_pretrained(model_name, quantization_config=bnb, device_map="auto")
-    llm.eval()
-    return tok, llm
+LLM_API_URL = os.getenv("LLM_API_URL", "https://api.openai.com/v1").rstrip("/")
+LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 
 
-@torch.no_grad()
-def chat(
-    tok,
-    llm,
-    system: str,
-    user: str,
-    max_new_tokens: int = 512,
-    temperature: float = 0.3,
-) -> str:
-    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
-    enc = tok.apply_chat_template(
-        messages, add_generation_prompt=True, return_tensors="pt", return_dict=True
-    ).to(llm.device)
-    out = llm.generate(
-        **enc,
-        max_new_tokens=max_new_tokens,
-        do_sample=temperature > 0,
-        temperature=max(temperature, 1e-5),
-        top_p=0.9,
-        pad_token_id=tok.eos_token_id,
-    )
-    gen_tokens = out[0][enc["input_ids"].shape[1] :]
-    return tok.decode(gen_tokens, skip_special_tokens=True).strip()
+def chat(system: str, user: str, max_tokens: int = 512,
+         temperature: float = 0.0, model: str | None = None) -> str:
+    """system/user 프롬프트로 1회 응답 생성. 429/5xx는 지수 백오프로 3회 재시도."""
+    key = os.getenv("OPENAI_API_KEY", "")
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY 가 비어 있습니다. .env 에 키를 넣어주세요.")
+    payload = {
+        "model": model or LLM_MODEL,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": user}],
+    }
+    for attempt in range(3):
+        r = requests.post(f"{LLM_API_URL}/chat/completions",
+                          headers={"Authorization": f"Bearer {key}"},
+                          json=payload, timeout=120)
+        if r.status_code == 429 or r.status_code >= 500:
+            time.sleep(2 ** attempt)   # ponytail: 고정 3회 백오프, 부족하면 tenacity 도입
+            continue
+        r.raise_for_status()
+        return r.json()["choices"][0]["message"]["content"].strip()
+    r.raise_for_status()   # 재시도 소진 — 마지막 응답의 에러를 그대로 올린다
+    raise RuntimeError("unreachable")

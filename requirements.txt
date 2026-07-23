@@ -6,7 +6,6 @@ chromadb==0.5.20
 # (transformers 5.x 는 torch 2.3 에서 tensor_parallel import 시 NameError 발생)
 sentence-transformers==3.0.1
 transformers==4.44.2
-accelerate==0.33.0
 tokenizers>=0.19,<0.20
 huggingface-hub>=0.24,<1.0
 # datasets 5.x 는 huggingface-hub>=1 을 요구하므로 2.x 로 고정.
@@ -14,8 +13,11 @@ datasets==2.21.0
 pandas
 numpy<2
 torch
-bitsandbytes==0.43.3
 fastapi
 uvicorn[standard]
+# 데모 앱 (app.py)
+streamlit
 ragas
 langchain-community
+# RAGAS judge(GPT-4o) 연결용
+langchain-openai
