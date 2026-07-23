@@ -8,9 +8,13 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 
-def load_embedder(model_name: str, device: str, max_seq_len: int) -> SentenceTransformer:
+def load_embedder(
+    model_name: str, device: str, max_seq_len: int, fp16: bool = False
+) -> SentenceTransformer:
     model = SentenceTransformer(model_name, device=device)
     model.max_seq_length = max_seq_len
+    if fp16 and device.startswith("cuda"):
+        model = model.half()  # RTX 3060 VRAM 절약 + 처리량 향상
     return model
 
 

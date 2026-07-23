@@ -1,0 +1,13 @@
+.git
+.venv
+venv
+__pycache__
+**/__pycache__
+*.pyc
+.ipynb_checkpoints
+chroma_db
+data
+*.ipynb
+EDA
+Daily_Standup
+.env
