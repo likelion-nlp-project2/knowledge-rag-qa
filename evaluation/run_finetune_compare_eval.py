@@ -54,6 +54,18 @@ OUT_CSV = Path(__file__).resolve().parent / "data" / "finetune_compare_seeds.csv
 #   담당자 요청이 필요하다.
 NEG_POOL_FULL = int(os.environ.get("NEG_POOL", 200_000))
 
+# 학습 에폭 — 기본값은 FinetuneConfig(=1)을 그대로 따른다(파인튜닝 담당 설정).
+#
+# 측정 근거: 기본 설정(질문 300 · 1 에폭)은 학습 스텝이 약 22회뿐이다. 소규모 확인 실험에서
+#   질문 30 · 1에폭(3스텝)  -> 12개 지표 Δ 전부 0.0 (학습이 반영되지 않음)
+#   질문 200 · 3에폭(45스텝) -> Recall@1 +8.6%, Hit@1 +4.8% 등 전 지표 개선
+# 즉 22스텝은 파인튜닝 효과(H2)를 못 보여줄 위험이 있다. 학습 시간은 전체의 일부이고
+# 대부분은 코퍼스 수집·임베딩이라, 에폭을 올려도 총 소요는 크게 늘지 않는다.
+#
+# 에폭 수는 파인튜닝 담당 영역이라 기본값은 바꾸지 않는다. 위 근거를 공유하고 합의되면
+# EPOCHS=3 처럼 환경변수로 지정해 실행할 것(사용한 값은 결과와 함께 반드시 보고).
+EPOCHS = int(os.environ.get("EPOCHS", 0)) or None
+
 
 def make_cfg() -> FinetuneConfig:
     if SMOKE:
@@ -62,7 +74,8 @@ def make_cfg() -> FinetuneConfig:
     # 검색·생성 평가와 같은 평가셋(dev 정답 쿼리 전수)을 쓰도록 개수를 맞춘다.
     dev_qrels = load_qrels(DATA, DATA.dev_split)
     n_eval = dev_qrels[dev_qrels[DATA.qr_score] > 0][DATA.qr_qid].nunique()
-    return FinetuneConfig(n_eval_queries=n_eval, neg_pool_size=NEG_POOL_FULL)
+    kw = {"epochs": EPOCHS} if EPOCHS else {}   # EPOCHS 미지정이면 FinetuneConfig 기본값(1)
+    return FinetuneConfig(n_eval_queries=n_eval, neg_pool_size=NEG_POOL_FULL, **kw)
 
 
 def aggregate(per_seed: dict[int, pd.DataFrame]) -> pd.DataFrame:
