@@ -95,6 +95,7 @@ def run_ask(
     seed: int = SEED,
     k: Optional[int] = None,
     modes: tuple = ("strict",),
+    rewrite: str = "keyword",
 ) -> dict:
     """Ko-miracl dev 코퍼스 부분집합을 색인하고, 질문 하나에 대해 RAG 응답을 생성한다.
 
@@ -122,7 +123,7 @@ def run_ask(
     result = None
     for mode in modes:
         result = rag_answer(
-            question, collection, model, cfg.query_prefix, k or cfg.top_k, mode
+            question, collection, model, cfg.query_prefix, k or cfg.top_k, mode, rewrite
         )
         if mode == modes[0]:
             print("① 원 질문     :", result["question"])
@@ -143,13 +144,15 @@ def main() -> None:
     p_ask = sub.add_parser("ask", help="질의재작성 -> 검색 -> 생성 RAG")
     p_ask.add_argument("question")
     p_ask.add_argument("--k", type=int, default=None)
+    p_ask.add_argument("--rewrite", choices=["none", "keyword", "hyde"], default="keyword",
+                        help="질의 재작성 방식 (기본 keyword). hyde=HyDE 가상 문서 재작성")
 
     args = parser.parse_args()
     if args.cmd == "compare":
         comp = run_compare()
         print(comp.round(4))
     elif args.cmd == "ask":
-        run_ask(args.question, k=args.k)
+        run_ask(args.question, k=args.k, rewrite=args.rewrite)
 
 
 if __name__ == "__main__":

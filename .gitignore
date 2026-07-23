@@ -10,3 +10,7 @@ venv/
 chroma_db/
 evaluation/data/*
 !evaluation/data/.gitkeep
+
+# 로컬 전용 코퍼스/메타데이터 산출물 (수백MB~1GB대, 재생성 가능)
+data/*
+!data/.gitkeep
