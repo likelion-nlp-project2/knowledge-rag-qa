@@ -1,18 +1,19 @@
 # ============================================
-# Generation(RAG 답변) 품질 평가 — 3층 평가 구조 (계획서 4.3)
+# Generation(RAG 답변) 품질 평가 — 자동(LLM) 평가 (계획서 4.3)
 #   [1층] 규칙 기반 주 지표: 인용 정확성 / 환각율 / 기권 적절성  (rag/gen_metrics.py, 결정적)
-#   [2층] 자동 의미 지표(RAGAS 등): 보류 — 외부 강판정기(GPT-4급) 확보 시 활성화.
-#         로컬 판정기(Qwen 7B)는 신뢰성 낮음 + 파이프라인과 같은 모델이라 순환 편향 +
-#         ragas/langchain 의존성 충돌 → 이 환경 미사용. 의미 품질 판정은 3층(사람)이 담당.
-#   [3층] 사람 평가 시트 export (1·2층을 검증하는 앵커)
+#   [2층] RAGAS 의미 지표: faithfulness / answer_relevancy (판정기 API, temperature=0)
+#         판정기가 생성 모델(gpt-4o-mini)보다 상위라야 채점이 의미를 가진다(멘토 피드백 #5).
+#   * 사람 평가는 팀 결정으로 제외(자동 LLM 평가로만 수행). 이전 구현은 git 이력 참고.
+#
+# 필요 패키지: ragas>=0.4, langchain-openai   /  필요 환경변수: OPENAI_API_KEY
 #
 # 무근거 대조군(기권 적절성의 '근거 없음' 방향 측정용):
 #   A) dev 정답 쿼리의 정답 문서를 인덱스에서 제외한 컬렉션 → 근거 없음(기권=정답). 정량 지표.
 #   B) 코퍼스 밖 질문 몇 개 → 실사용 시연용 정성 예시(labels 불확실해 참고).
+#      B는 라벨이 불확실하므로 정량 집계에서 제외하고 따로 보고한다(아래 QUANT_SETS).
 # ============================================
 
 import os
-import random
 import sys
 from pathlib import Path
 
@@ -43,13 +44,6 @@ from evaluation.run_retrieval_eval import (
     queries,
 )
 
-# 스모크(SMOKE=1): 소량·단일 seed로 3층 구조만 빠르게 확인.
-# 미설정(기본): 계획서 4.3 실제 설정(30개·seed 3개).
-SMOKE = bool(os.environ.get("SMOKE"))
-
-N_GEN_EVAL = 3 if SMOKE else 30    # answerable 평가 쿼리 수
-N_UNANS = 3 if SMOKE else 30       # 무근거 대조군 A(정답 문서 제외) 쿼리 수
-N_HUMAN_CHECK = 15                 # 사람이 같이 검산할 개수
 
 # 무근거 대조군 B: 이 코퍼스(위키)에 답이 없는 질문 → strict 모드에서 기권이 정답.
 # (라벨이 100% 확실치 않아 정량 주 지표가 아닌 '정성 예시'로만 사용)
@@ -61,14 +55,24 @@ OOD_QUESTIONS = [
     "이 문서 요약해서 이메일로 보내줘",
 ]
 
-# dev score>0 쿼리를 seed=42 순서로 전부 뽑아, 겹치지 않게 분리:
-#   앞 N_GEN_EVAL개 = answerable / 그 다음 N_UNANS개 = 무근거 대조군 A
-all_pos_qids = sample_pos_queries(dev_qrels, DATA, n=10**9, seed=SEED)
-gen_qids = all_pos_qids[:N_GEN_EVAL]
-unans_qids = all_pos_qids[N_GEN_EVAL : N_GEN_EVAL + N_UNANS]
+# 평가셋: dev score>0 쿼리 "전수"(213개)를 seed=42 순서로 고정해 사용.
+# 팀 피드백("규모 213개 유지")에 따라 예전처럼 앞 30개/다음 30개로 쪼개지 않는다.
+# 쪼개면 각 조건이 절반으로 줄어 213 규모를 못 지키므로, 같은 213개를 두 조건으로 각각 돌린다:
+#   answerable     = 정답 문서가 인덱스에 있는 원 컬렉션  → 기권하면 과잉 기권(나쁨)
+#   unanswerable_A = 그 213개의 정답 문서를 뺀 컬렉션      → 기권해야 정답
+# 스모크(SMOKE=1): 쿼리 3개로 "코드가 끝까지 도는지"만 확인(숫자는 무의미).
+#   RAGAS 판정이 유료 API라, 전량 실행 전에 반드시 이걸로 구조를 먼저 검증할 것.
+# 미설정(기본): 보고용 — dev 정답 쿼리 전수 213개.
+#
+# 평가에 train split을 절대 섞지 않는다: train은 리트리버 파인튜닝 학습에 쓰이므로
+# 평가에 넣으면 데이터 누수가 된다(학습에 본 질문으로 성능을 재는 셈).
+SMOKE = bool(os.environ.get("SMOKE"))
 
-# 무근거 대조군 A용 인덱스: unans_qids의 정답 문서를 코퍼스에서 제외
-unans_gold = build_gold(dev_qrels, DATA, unans_qids)
+all_pos_qids = sample_pos_queries(dev_qrels, DATA, n=10**9, seed=SEED)
+eval_qids = all_pos_qids[:3] if SMOKE else all_pos_qids
+
+# 무근거 대조군 A용 인덱스: eval_qids 전체의 정답 문서를 코퍼스에서 제외
+unans_gold = build_gold(dev_qrels, DATA, eval_qids)
 unans_gold_cids = needed_corpus_ids(unans_gold)
 index_cids_no_gold = [c for c in index_cids if c not in unans_gold_cids]
 
@@ -101,7 +105,7 @@ def _to_record(set_name: str, answerable: bool, qid, question: str, result: dict
 
 
 def build_coll_unans():
-    # 무근거 A용 컬렉션: unans_qids의 정답 문서를 코퍼스에서 제외.
+    # 무근거 A용 컬렉션: eval_qids 전체의 정답 문서를 코퍼스에서 제외.
     # 임베딩은 seed와 무관(결정적)하므로 seed 루프 밖에서 한 번만 만들어 재사용한다.
     return build_collection(
         chroma_client,
@@ -115,16 +119,21 @@ def build_coll_unans():
     )
 
 
+# 정량 주 지표에 넣을 세트. 무근거 B(OOD)는 "이 코퍼스에 답이 없다"는 라벨이 우리 추정이라
+# 정량 집계에 넣으면 환각율·기권 적절성이 검증 안 된 라벨로 오염된다. 따로 정성 보고만 한다.
+QUANT_SETS = ("answerable", "unanswerable_A")
+
+
 def build_records(coll_unans, seed: int = SEED) -> list[dict]:
     records: list[dict] = []
 
     # answerable: 정답 문서가 인덱스에 그대로 있는 원 컬렉션에서 검색
-    for qid in gen_qids:
+    for qid in eval_qids:
         r = _answer_one(queries[qid], collection, seed)
         records.append(_to_record("answerable", True, qid, queries[qid], r))
 
-    # 무근거 A: 정답 문서를 제외한 컬렉션 → 검색해도 근거가 없음(기권해야 정답)
-    for qid in unans_qids:
+    # 무근거 A: 같은 쿼리를 정답 문서 제외 컬렉션으로 → 근거가 없음(기권해야 정답)
+    for qid in eval_qids:
         r = _answer_one(queries[qid], coll_unans, seed)
         records.append(_to_record("unanswerable_A", False, qid, queries[qid], r))
 
@@ -136,10 +145,17 @@ def build_records(coll_unans, seed: int = SEED) -> list[dict]:
     return records
 
 
-# 계획서 4.3 신뢰성: seed 3개로 생성해 평균±표준편차 보고.
-# 생성 LLM을 seed당 1회씩 전체(answerable+무근거) 돌리므로 seed 수만큼 느려진다.
-# 스모크 테스트로 파이프라인만 확인할 땐 [SEED] 로 줄여라.
-GEN_SEEDS = [SEED] if SMOKE else [SEED, SEED + 1, SEED + 2]
+# 계획서 4.3 신뢰성(seed 반복) — 생성은 1회로 충분하다.
+#
+# 예전엔 생성이 로컬 Qwen + temperature=0.2 라 같은 입력에도 답이 흔들려 seed 3개가 필요했다.
+# 지금은 생성이 API(gpt-4o-mini) + temperature=0 이라 사실상 결정적이라, 반복해도
+# 표준편차가 0에 수렴한다. 3회로 두면 같은 답을 세 번 받으려고 RAGAS 판정비를 3배 낼 뿐이다.
+#
+# 단, 파인튜닝 전/후 비교(run_finetune_compare_eval.py)는 매번 새로 학습해 실제로 변동이
+# 생기므로 거기서는 seed 3개를 그대로 유지한다 — 멘토 피드백 #1의 표준편차는 그쪽이 담당.
+#
+# 생성 변동성을 굳이 확인하고 싶으면 GEN_SEEDS 에 seed를 더 넣으면 된다(비용 비례 증가).
+GEN_SEEDS = [SEED]
 
 
 def mean_std(dicts: list[dict]) -> dict:
@@ -151,97 +167,153 @@ def mean_std(dicts: list[dict]) -> dict:
     }
 
 
-# ---------- [2층] 자동 의미 지표 — 미구현(보류) ----------
-# RAGAS 등 자동 의미 지표는 GPT-4급 '독립적·강한' 외부 판정기가 있어야 의미가 있다.
-# 로컬 판정기(Qwen 7B)는 (1) 약한 판정으로 신뢰성 낮음 (2) 파이프라인과 같은 모델이라
-# 순환 편향 (3) ragas/langchain 의존성 충돌 → 이 환경에서는 구현하지 않는다.
-# 의미적 품질(정확성·근거 타당성)은 3층(사람 평가)이 담당.
-# 외부 판정기(API) 확보 시: records0의 (question, answer, contexts)를 그대로 넘겨
-# 별도 스크립트로 Faithfulness/Answer Relevancy/Context Precision을 계산하면 된다.
+# ---------- [2층] RAGAS 자동 의미 지표 ----------
+# 사람 평가를 폐기하고 자동 LLM 판정으로 전환(팀 피드백)했으므로, 이 층이 생성 '의미 품질'의
+# 사실상 주 지표가 된다. 그래서 1층과 동일하게 seed별로 판정해 평균±표준편차까지 보고한다.
+#
+# 판정기(temperature=0). 생성 모델(gpt-4o-mini)보다 상위여야 채점이 의미를 가진다(피드백 #5).
+# 지표: faithfulness(근거 충실도) + answer_relevancy(답변 관련성).
+#   context_precision은 RAGAS가 ground_truth(정답 '문장')를 요구하는데, Ko-miracl에는
+#   정답 '문서'만 있고 정답 답변 텍스트가 없어 사용하지 않는다.
+# 판정 대상: answerable 세트에서 기권하지 않은 답변만.
+#   (기권 답변의 품질은 1층의 over_abstention_rate가 담당 — 여기서 이중으로 벌점 주지 않음)
+#
+# 판정기는 evaluation/run_ragas_eval.py(프롬프트 A/B 실험)와 반드시 같아야 한다.
+#
+# 두 스크립트는 목적이 달라 트랙을 따로 유지하지만(이쪽은 계획서 4.3 보고용 절대 수치,
+# 저쪽은 프롬프트 A/B 상대 비교), 둘 다 'faithfulness'라는 같은 이름의 지표를 낸다.
+# 판정 모델이 다르면 점수 스케일이 달라져, 발표에서 두 숫자가 나란히 보이는 순간 사고가 난다.
+# 그래서 평가셋·검색 백엔드는 달라도 되지만 판정기만은 하나로 고정한다.
+#
+# 기본값을 gpt-5.4-mini 로 둔 이유: (1) run_ragas_eval.py 가 이미 이 모델이고, (2) 생성
+# 모델 gpt-4o-mini 와 계열이 달라 자기 채점 편향에서 더 자유롭다(멘토 피드백 #5).
+# 팀이 gpt-4o 로 정하면 이 한 줄만 바꾸면 된다(환경변수로도 덮어쓸 수 있음).
+RAGAS_JUDGE_MODEL = os.environ.get("RAGAS_JUDGE_MODEL", "gpt-5.4-mini")
+RAGAS_EMBED_MODEL = "text-embedding-3-small"   # answer_relevancy 계산에 필요
+JUDGE_CSV = "evaluation/data/ragas_scores.csv"
+JUDGE_COLS = ["faithfulness", "answer_relevancy"]
 
 
-# ---------- [3층] 사람 평가 시트 ----------
-def sample_human_check(records: list[dict], n: int, seed: int = SEED) -> list[dict]:
-    """사람 채점용 표본을 set별 층화 무작위로 뽑는다 (계획서 4.3 '무작위 표본').
+def _build_ragas_judge():
+    """RAGAS 판정기(LLM + 임베딩) 구성. OPENAI_API_KEY 환경변수 필요(코드에 키를 넣지 말 것)."""
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise SystemExit(
+            f"OPENAI_API_KEY 환경변수가 없습니다. RAGAS 판정기는 {RAGAS_JUDGE_MODEL}를 사용합니다.\n"
+            "  예) .env 에 OPENAI_API_KEY=... (rag/llm.py가 load_dotenv로 읽는 파일과 동일)"
+        )
+    from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+    from ragas.embeddings import LangchainEmbeddingsWrapper
+    from ragas.llms import LangchainLLMWrapper
 
-    records[:n] 처럼 앞에서 자르면 answerable 만 뽑혀(gen_qids가 먼저 쌓임)
-    환각율·기권 적절성(무근거 세트에서만 나오는 지표)을 사람이 검증할 수 없다.
-    set(answerable / unanswerable_A / unanswerable_B)를 번갈아(라운드로빈) 뽑아
-    모든 지표가 사람 대조를 받게 하고, seed를 고정해 재현/체리피킹 방지를 보장한다.
+    # temperature=0: 판정 재현성(계획서 4.3 신뢰성)
+    judge_llm = LangchainLLMWrapper(ChatOpenAI(model=RAGAS_JUDGE_MODEL, temperature=0))
+    judge_emb = LangchainEmbeddingsWrapper(OpenAIEmbeddings(model=RAGAS_EMBED_MODEL))
+    return judge_llm, judge_emb
+
+
+def run_ragas(records: list[dict], seed: int) -> pd.DataFrame:
+    """answerable·비기권 답변을 RAGAS로 판정해 seed 컬럼을 붙인 점수표를 반환.
+
+    RAGAS 0.4 API 기준. 0.1 시절의 `from ragas.metrics import faithfulness`(모듈 레벨
+    인스턴스)와 HF Dataset 입력은 0.4에서 제거됐고, EvaluationDataset + 클래스형 지표로
+    바뀌었다. 필드명도 question/answer/contexts -> user_input/response/retrieved_contexts.
     """
-    rng = random.Random(seed)
-    by_set: dict[str, list[dict]] = {}
-    for r in records:
-        by_set.setdefault(r["set"], []).append(r)
-    for rs in by_set.values():
-        rng.shuffle(rs)
+    from ragas import EvaluationDataset
+    from ragas import evaluate as ragas_evaluate
+    from ragas.metrics import Faithfulness, ResponseRelevancy
 
-    picked: list[dict] = []
-    sets = sorted(by_set)  # 결정적 순서
-    cursor = {s: 0 for s in sets}
-    while len(picked) < n and any(cursor[s] < len(by_set[s]) for s in sets):
-        for s in sets:
-            if cursor[s] < len(by_set[s]):
-                picked.append(by_set[s][cursor[s]])
-                cursor[s] += 1
-                if len(picked) >= n:
-                    break
-    return picked
+    targets = [
+        r for r in records
+        if r["answerable"] and ABSTENTION_MARKER not in r["answer"]
+    ]
+    if not targets:
+        return pd.DataFrame()
 
-
-def export_human_check_sheet(records: list[dict], path: str = "evaluation/data/human_check.csv"):
-    """사람이 채점할 표본을 CSV로 export (score 컬럼은 사람이 직접 채움)."""
-    subset = sample_human_check(records, N_HUMAN_CHECK)
-    df = pd.DataFrame(
+    judge_llm, judge_emb = _build_ragas_judge()
+    ds = EvaluationDataset.from_list(
         [
             {
-                "set": r["set"],
-                "qid": r["qid"],
-                "question": r["question"],
-                "answer": r["answer"],
-                "answerable": r["answerable"],
-                "correctness_score": "",     # 사람: 답변 정확성
-                "groundedness_score": "",     # 사람: 근거 타당성
+                "user_input": r["question"],
+                "response": r["answer"],
+                "retrieved_contexts": r["contexts"],
             }
-            for r in subset
+            for r in targets
         ]
     )
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(path, index=False, encoding="utf-8-sig")
-    print("사람 채점용 시트 저장:", path)
+    result = ragas_evaluate(
+        ds,
+        metrics=[
+            Faithfulness(llm=judge_llm),
+            ResponseRelevancy(llm=judge_llm, embeddings=judge_emb),
+        ],
+    )
+    df = result.to_pandas()
+    df.insert(0, "seed", seed)
+    df.insert(1, "qid", [r["qid"] for r in targets])
+    return df
+
+
+def _report(label: str, per_seed: list[dict]) -> None:
+    """seed가 1개면 값만, 여러 개면 평균±표준편차로 출력."""
+    if len(per_seed) == 1:
+        for name, value in per_seed[0].items():
+            print(f"{name}: {value:.4f}")
+        print(f"  ({label}: 생성 temperature=0 이라 결정적 — seed 반복 불필요)")
+    else:
+        for name, (mu, sd) in mean_std(per_seed).items():
+            print(f"{name}: {mu:.4f} ± {sd:.4f}")
 
 
 if __name__ == "__main__":
-    print(f"생성 평가: answerable {len(gen_qids)} / 무근거A {len(unans_qids)} / 무근거B {len(OOD_QUESTIONS)}")
-    print(f"생성 seed: {GEN_SEEDS} (계획서 4.3 신뢰성: seed 평균±표준편차)")
+    # 같은 eval_qids를 두 조건(정답 포함/제외)으로 돌리므로 생성 건수는 2×213 + OOD
+    print(f"생성 평가: 평가셋 {len(eval_qids)}개 × 2조건(answerable/무근거A) + 무근거B {len(OOD_QUESTIONS)}")
+    print(f"평가 split: dev only (train은 파인튜닝 학습에 쓰이므로 누수 방지 차원에서 제외)")
+    print(f"생성 seed: {GEN_SEEDS} | RAGAS 판정기: {RAGAS_JUDGE_MODEL}")
 
     # 무근거 A 컬렉션은 seed와 무관(임베딩 결정적) → 한 번만 만들어 재사용
     coll_unans = build_coll_unans()
 
-    # [1층] 규칙 기반 주 지표를 seed별로 계산 → 평균±표준편차.
-    #  세트별 기권율·사람 시트는 첫 seed(records0) 답변을 대표로 사용.
     per_seed_scores: list[dict] = []
+    per_seed_judge: list[dict] = []
+    judge_frames: list[pd.DataFrame] = []
     records0: list[dict] = []
     for i, s in enumerate(GEN_SEEDS):
-        print(f"\n----- 생성 (seed={s}) -----")
+        print(f"\n----- 생성·판정 (seed={s}) -----")
         recs = build_records(coll_unans, seed=s)
-        per_seed_scores.append(evaluate_generation(recs))
+        # 정량 지표는 라벨이 확실한 세트만 (무근거 B 제외)
+        per_seed_scores.append(evaluate_generation([r for r in recs if r["set"] in QUANT_SETS]))
+
+        jdf = run_ragas(recs, s)
+        judge_frames.append(jdf)
+        if len(jdf):
+            per_seed_judge.append(jdf[JUDGE_COLS].mean().to_dict())
         if i == 0:
             records0 = recs
 
-    print("\n===== [1층] 규칙 기반 주 지표 (seed 평균 ± 표준편차) =====")
-    for name, (mu, sd) in mean_std(per_seed_scores).items():
-        print(f"{name}: {mu:.4f} ± {sd:.4f}")
+    print(f"\n===== [1층] 규칙 기반 주 지표 (대상: {', '.join(QUANT_SETS)}) =====")
+    _report("1층", per_seed_scores)
 
-    # 세트별 기권율 요약 (첫 seed 기준)
+    # 세트별 기권율 요약 (첫 seed 기준) — 무근거 B도 여기서는 참고로 함께 보여준다
     print(f"\n----- 세트별 기권율 (seed={GEN_SEEDS[0]}) -----")
     df_rec = pd.DataFrame(records0)
     df_rec["abstained"] = df_rec["answer"].str.contains(ABSTENTION_MARKER)
     print(df_rec.groupby("set")["abstained"].mean().round(4))
 
-    # [2층] 자동 의미 지표 — 보류. 사유·재활성화 방법은 위 '[2층]' 주석 블록 참고.
-    print("\n===== [2층] 자동 의미 지표: 보류 — 의미 품질은 3층(사람 평가)이 담당 =====")
+    # 무근거 B는 정성 예시로만 — 실제 답변을 눈으로 확인한다
+    print("\n----- [정성] 무근거 B(코퍼스 밖 질문) 응답 예시 -----")
+    for r in records0:
+        if r["set"] == "unanswerable_B":
+            mark = "기권" if ABSTENTION_MARKER in r["answer"] else "답변함"
+            print(f"  [{mark}] {r['question']}\n         -> {r['answer'][:80]}")
 
-    # [3층] 사람 평가 시트 (무작위·set 층화 표본)
-    print("\n===== [3층] 사람 평가 시트 =====")
-    export_human_check_sheet(records0)
+    # [2층] RAGAS 의미 지표 — answerable·비기권 답변만
+    print(f"\n===== [2층] RAGAS 의미 지표 (판정기 {RAGAS_JUDGE_MODEL}, 0~1) =====")
+    if per_seed_judge:
+        _report("2층", per_seed_judge)
+        all_judge = pd.concat(judge_frames, ignore_index=True)
+        n_fail = int(all_judge[JUDGE_COLS].isna().sum().sum())
+        Path(JUDGE_CSV).parent.mkdir(parents=True, exist_ok=True)
+        all_judge.to_csv(JUDGE_CSV, index=False, encoding="utf-8-sig")
+        print(f"판정 {len(all_judge)}건 저장: {JUDGE_CSV} (점수 누락 {n_fail}건)")
+    else:
+        print("판정 대상 없음 (answerable 답변이 모두 기권)")

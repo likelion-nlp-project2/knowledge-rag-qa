@@ -10,3 +10,7 @@ venv/
 chroma_db/
 evaluation/data/*
 !evaluation/data/.gitkeep
+# 축소 코퍼스(107MB) — GitHub 100MB 제한 초과라 커밋 금지. Drive/로컬로 공유.
+data/*.jsonl
+
+
