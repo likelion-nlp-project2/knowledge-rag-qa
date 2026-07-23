@@ -88,7 +88,7 @@ def _answer_one(question: str, coll, seed: int = SEED) -> dict:
         embed_model=embed_model,
         query_prefix=cfg.query_prefix,
         k=cfg.top_k,
-        mode="strict",
+        mode="fewshot",  # 도현님 프롬프트 A/B 실험 결과 채택 (faithfulness/answer_relevancy 둘 다 우위)
     )
 
 
