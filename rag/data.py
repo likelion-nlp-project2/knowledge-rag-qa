@@ -1,12 +1,15 @@
 """Ko-miracl 로드 + 학습/평가용 부분집합 구성.
 
-전체 코퍼스(149만 청크)를 다 올리지 않고, 정답 문서 + 네거티브 풀만 스트리밍으로 모은다.
+- queries/qrels: HF(taeminlee/Ko-miracl)에서 로드 (평가 정답셋)
+- corpus: 팀원이 만든 로컬 서브셋(ko_miracl_reduced_corpus.jsonl, 20만 청크)을
+  스트리밍으로 읽는다. (더 이상 전체 코퍼스를 HF에서 스트리밍하지 않는다)
 """
 
 from __future__ import annotations
 
+import json
 import random
-from typing import Dict, Iterable, List, Set, Tuple
+from typing import Dict, Iterable, Iterator, List, Set, Tuple
 
 import pandas as pd
 from datasets import load_dataset
@@ -83,4 +86,50 @@ def collect_corpus(
             neg += 1
         if len(found) >= len(needed_cids) and neg >= neg_pool_size:
             break
+    return text, title
+
+
+# ---------------------------------------------------------------------------
+# 로컬 서브셋(jsonl) 로더 — ChromaDB 적재용
+# 형식: {"_id": "985055#0", "title": "...", "text": "..."} 한 줄당 한 청크
+# ---------------------------------------------------------------------------
+def iter_local_corpus(
+    path: str, schema: DataSchema = DataSchema()
+) -> Iterator[Tuple[str, str, str]]:
+    """서브셋 jsonl을 한 줄씩 스트리밍한다. yield (cid, title, text).
+
+    20만 청크를 메모리에 다 올리지 않기 위해 제너레이터로 흘려보낸다.
+    빈 text(공백 포함)는 임베딩 노이즈라 건너뛴다.
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            row = json.loads(line)
+            text = (row.get(schema.c_text) or "").strip()
+            if not text:
+                continue
+            cid = row[schema.c_id]
+            title = row.get(schema.c_title) or ""
+            yield cid, title, text
+
+
+def count_local_corpus(path: str, schema: DataSchema = DataSchema()) -> int:
+    """진행률 표시용 총 청크 수(빈 text 제외)."""
+    return sum(1 for _ in iter_local_corpus(path, schema))
+
+
+def load_local_corpus(
+    path: str, schema: DataSchema = DataSchema()
+) -> Tuple[Dict[str, str], Dict[str, str]]:
+    """서브셋 전체를 메모리에 올린다 (compare/평가에서 collect_corpus 대체용).
+
+    반환: (cid -> text, cid -> title)
+    """
+    text: Dict[str, str] = {}
+    title: Dict[str, str] = {}
+    for cid, t, x in iter_local_corpus(path, schema):
+        text[cid] = x
+        title[cid] = t
     return text, title

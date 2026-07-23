@@ -1,0 +1,72 @@
+# 데스크탑(RTX 3060) 배포 구성.
+#   chroma      : 영속 벡터 저장소 (볼륨에 데이터 유지)
+#   api         : bge-m3 임베딩 + 검색 API (GPU 사용)
+#   cloudflared : Cloudflare Tunnel로 api를 공개 URL에 연결
+#
+# 사용:
+#   docker compose up -d chroma                         # 저장소 먼저 기동
+#   docker compose run --rm api python -m rag.ingest --model bge-m3   # 20만 청크 적재(1회)
+#   docker compose up -d api cloudflared                # API + 터널 공개
+#
+# .env 파일에 TUNNEL_TOKEN 등을 넣어둔다 (.env.example 참고).
+
+services:
+  chroma:
+    image: chromadb/chroma:0.5.20
+    restart: unless-stopped
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    volumes:
+      - chroma-data:/chroma/chroma
+    # 외부에 직접 노출할 필요 없음(같은 compose 네트워크에서 api가 접근).
+    # 로컬에서 직접 붙어 디버깅하려면 아래 주석 해제.
+    # ports:
+    #   - "8000:8000"
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - chroma
+    environment:
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
+      - EMBED_MODEL=${EMBED_MODEL:-bge-m3}
+      - CORPUS_PATH=/app/data/ko_miracl_reduced_corpus.jsonl
+      - INGEST_BATCH=${INGEST_BATCH:-256}
+      - FP16=${FP16:-1}
+      # 검색 파이프라인: 기본 리랭커(요청마다 rerank 파라미터로 교체 가능) + 조립 파라미터
+      - RERANK_MODEL=${RERANK_MODEL:-bge-reranker-v2-m3}
+      - RETRIEVE_N=${RETRIEVE_N:-50}
+      - RERANK_TOP_K=${RERANK_TOP_K:-5}
+      - CONTEXT_WINDOW=${CONTEXT_WINDOW:-1}
+    volumes:
+      - ./data:/app/data:ro           # 서브셋 jsonl (적재 시에만 필요)
+      - hf-cache:/root/.cache/huggingface   # 모델 캐시 재사용(bge-m3 재다운로드 방지)
+    # RTX 3060 GPU 할당
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # 검색 API를 로컬에서도 확인하고 싶으면 노출(터널만 쓸 거면 불필요).
+    # 호스트 8080은 다른 프로젝트가 점유 중이라 8081로 매핑(컨테이너 내부는 8080 그대로,
+    # cloudflared는 내부망 http://api:8080 으로 붙으므로 공개 접속엔 영향 없음).
+    ports:
+      - "8081:8080"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+
+volumes:
+  chroma-data:
+  hf-cache:

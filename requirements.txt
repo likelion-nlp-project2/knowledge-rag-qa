@@ -1,12 +1,21 @@
 python-dotenv
-chromadb>=0.5
-sentence-transformers>=3.0
-datasets
+# chroma 서버(docker-compose)가 0.5.20 이므로 클라이언트도 맞춰 고정한다.
+# (1.x 클라이언트는 v2 API를 써서 0.5.x 서버와 통신 불가)
+chromadb==0.5.20
+# 베이스 이미지의 torch 2.3.1 과 호환되는 버전으로 고정.
+# (transformers 5.x 는 torch 2.3 에서 tensor_parallel import 시 NameError 발생)
+sentence-transformers==3.0.1
+transformers==4.44.2
+accelerate==0.33.0
+tokenizers>=0.19,<0.20
+huggingface-hub>=0.24,<1.0
+# datasets 5.x 는 huggingface-hub>=1 을 요구하므로 2.x 로 고정.
+datasets==2.21.0
 pandas
-numpy
+numpy<2
 torch
-transformers
-accelerate
-bitsandbytes
+bitsandbytes==0.43.3
+fastapi
+uvicorn[standard]
 ragas
 langchain-community
