@@ -5,6 +5,7 @@ from rag_engine import get_backend_health
 from schema import PipelineConfig
 
 _PROMPT_LABELS = {"fewshot": "예시 포함 (권장)", "basic": "기본"}
+_REWRITE_LABELS = {"keyword": "키워드 재작성 (기본)", "hyde": "HyDE (가상 문서)", "none": "안 함"}
 
 
 def render() -> PipelineConfig:
@@ -24,6 +25,10 @@ def render() -> PipelineConfig:
         prompt_style = st.selectbox("답변 프롬프트", options=list(_PROMPT_LABELS),
                                     format_func=_PROMPT_LABELS.get,
                                     help="답변 생성에 사용할 프롬프트 방식을 선택합니다.")
+        rewrite_mode = st.selectbox("질의 재작성 방식", options=list(_REWRITE_LABELS),
+                                    format_func=_REWRITE_LABELS.get,
+                                    help="검색 전 질문을 어떻게 바꿔서 쓸지 선택합니다. "
+                                         "HyDE는 질문에 대한 가상의 답변 문서를 만들어 그걸로 검색합니다.")
 
         with st.expander("ℹ️ 시스템 정보"):
             health = get_backend_health()
@@ -39,4 +44,5 @@ def render() -> PipelineConfig:
         min_score=min_score,
         use_reranker=use_reranker,
         prompt_style=prompt_style,
+        rewrite_mode=rewrite_mode,
     )

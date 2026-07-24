@@ -18,6 +18,25 @@ def rewrite_query(question: str) -> str:
     return chat(system, user, max_tokens=64, temperature=0.0)
 
 
+def hyde_rewrite(question: str) -> str:
+    """HyDE: 질문에 대한 가상의 답변 문서를 LLM으로 생성해 검색 질의로 쓴다.
+
+    실제 정답인지는 상관없다 — 질문(짧고 키워드성)보다 '문서처럼 생긴 텍스트'가
+    dense 임베딩 공간에서 실제 코퍼스 문서와 더 가깝게 놓인다는 게 핵심 아이디어.
+    """
+    system = (
+        "당신은 위키백과 스타일의 백과사전 문서를 작성하는 어시스턴트입니다. "
+        "사용자의 질문에 대한 답을 이미 안다고 가정하고, 그 답이 담긴 위키백과 문단을 "
+        "2~4문장으로 작성하세요. 실제로 맞는 답인지 모르더라도 사실처럼 서술하고, "
+        "'모르겠다'거나 질문을 되묻지 마세요. 다른 설명 없이 문단만 출력하세요."
+    )
+    user = f"질문: {question}\n가상 답변 문단:"
+    return chat(system, user, max_tokens=200, temperature=0.0)
+
+
+REWRITE_FNS = {"none": None, "keyword": rewrite_query, "hyde": hyde_rewrite}
+
+
 # 고정 필수 규칙: ① 참고 문서만을 기반으로 답변 ② 문서에 없으면 찾을 수 없다고만 답변
 # (lenient(일반 지식 보완) 모드는 ① 고정 규칙과 충돌해 제거함)
 _SYSTEM_GEN = (
@@ -83,14 +102,20 @@ def rag_answer(
     query_prefix: str = "",
     k: int = 5,
     mode: str = "strict",
+    rewrite: str = "keyword",
 ) -> Dict:
-    rewritten = rewrite_query(question)
+    """rewrite: "none"(원 질의 그대로) | "keyword"(기존 키워드 재작성) | "hyde"(HyDE)."""
+    if rewrite not in REWRITE_FNS:
+        raise ValueError(f"unknown rewrite: {rewrite!r}, expected one of {list(REWRITE_FNS)}")
+    rewrite_fn = REWRITE_FNS[rewrite]
+    rewritten = rewrite_fn(question) if rewrite_fn else question
     contexts = retrieve(collection, embed_model, rewritten, query_prefix, k=k)
     system, user = build_prompt(question, contexts, mode)
     answer = chat(system, user, max_tokens=512, temperature=0.0)
     return {
         "question": question,
         "rewritten": rewritten,
+        "rewrite_mode": rewrite,
         "contexts": contexts,
         "mode": mode,
         "answer": answer,

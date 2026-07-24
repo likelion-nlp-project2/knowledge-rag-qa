@@ -15,3 +15,7 @@ data/*.jsonl
 
 # 실험 결과물 (generate_answers.py / run_ragas_eval.py 산출물) — 각자 로컬에서 재생성
 result/
+
+# 로컬 전용 코퍼스/메타데이터 산출물 (수백MB~1GB대, 재생성 가능)
+data/*
+!data/.gitkeep
