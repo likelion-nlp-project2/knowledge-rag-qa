@@ -31,7 +31,9 @@ def chat(system: str, user: str, max_tokens: int = 512,
     payload = {
         "model": model or LLM_MODEL,
         "temperature": temperature,
-        "max_tokens": max_tokens,
+        # max_tokens 는 신형 모델(gpt-5.x)에서 400 unsupported_parameter 로 거절된다.
+        # max_completion_tokens 는 gpt-4o-mini 도 받으므로 이쪽으로 통일한다.
+        "max_completion_tokens": max_tokens,
         "messages": [{"role": "system", "content": system},
                      {"role": "user", "content": user}],
     }

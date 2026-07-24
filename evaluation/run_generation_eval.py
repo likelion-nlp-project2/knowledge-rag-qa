@@ -13,6 +13,7 @@
 #      B는 라벨이 불확실하므로 정량 집계에서 제외하고 따로 보고한다(아래 QUANT_SETS).
 # ============================================
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -190,8 +191,25 @@ def mean_std(dicts: list[dict]) -> dict:
 # 팀이 gpt-4o 로 정하면 이 한 줄만 바꾸면 된다(환경변수로도 덮어쓸 수 있음).
 RAGAS_JUDGE_MODEL = os.environ.get("RAGAS_JUDGE_MODEL", "gpt-5.4-mini")
 RAGAS_EMBED_MODEL = "text-embedding-3-small"   # answer_relevancy 계산에 필요
-JUDGE_CSV = "evaluation/data/ragas_scores.csv"
+JUDGE_CSV = "result/ragas_scores.csv"
 JUDGE_COLS = ["faithfulness", "answer_relevancy"]
+
+# 정답 답변 라벨(RAGAS 의 reference = ground_truth). evaluation/build_reference_answers.py 산출물.
+# 있으면 4컬럼 지표(context_recall / answer_correctness)가 자동으로 추가되고, 없으면
+# 3컬럼 지표만 낸다 — 라벨 없이도 파이프라인이 그대로 돌아간다.
+REFERENCE_JSONL = "result/reference_answers.jsonl"
+REF_COLS = ["context_recall", "answer_correctness"]
+
+# 생성 답변 원본. Colab 세션이 끊기면 출력이 사라지는데 이건 API 비용이 든 산출물이라
+# 판정(RAGAS)보다 먼저 디스크에 떨군다 — 판정이 실패해도 재생성 없이 다시 채점할 수 있다.
+RECORDS_JSONL = "result/generations_eval.jsonl"
+
+
+def _save_jsonl(path: str, rows: list[dict]) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
 
 def _build_ragas_judge():
@@ -211,17 +229,34 @@ def _build_ragas_judge():
     return judge_llm, judge_emb
 
 
+def load_references() -> dict:
+    """qid -> 정답 답변 텍스트. 라벨 파일이 없으면 빈 dict."""
+    p = Path(REFERENCE_JSONL)
+    if not p.exists():
+        return {}
+    with open(p, encoding="utf-8") as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    # reference=None 은 '정답 문서에 답이 없어 라벨을 못 만든 질문'이라 집계에서 뺀다
+    return {r["qid"]: r["reference"] for r in rows if r.get("reference")}
+
+
 def run_ragas(records: list[dict], seed: int) -> pd.DataFrame:
     """answerable·비기권 답변을 RAGAS로 판정해 seed 컬럼을 붙인 점수표를 반환.
 
     RAGAS 0.4 API 기준. 0.1 시절의 `from ragas.metrics import faithfulness`(모듈 레벨
     인스턴스)와 HF Dataset 입력은 0.4에서 제거됐고, EvaluationDataset + 클래스형 지표로
-    바뀌었다. 필드명도 question/answer/contexts -> user_input/response/retrieved_contexts.
+    바뀌었다. 필드명도 question/answer/contexts -> user_input/response/retrieved_contexts,
+    ground_truth -> reference 로 바뀌었다(구버전 예제 코드를 그대로 붙이면 안 됨).
+
+    지표를 두 번에 나눠 돌린다:
+      3컬럼(faithfulness/answer_relevancy) — reference 불필요 → 대상 '전체'
+      4컬럼(context_recall/answer_correctness) — reference 필요 → 라벨 있는 것만
+    한 번에 돌리면 라벨 없는 질문 때문에 3컬럼 지표의 모수까지 같이 줄어들어,
+    라벨 도입 전 실행(result/ragas_summary.csv)과 숫자를 비교할 수 없게 된다.
     """
     from ragas import EvaluationDataset
     from ragas import evaluate as ragas_evaluate
-    from ragas.metrics import Faithfulness, ResponseRelevancy
-    # from ragas.metrics import LLMContextPrecisionWithReference, LLMContextRecall  # reference 준비되면 주석 해제
+    from ragas.metrics import AnswerCorrectness, Faithfulness, LLMContextRecall, ResponseRelevancy
 
     targets = [
         r for r in records
@@ -231,36 +266,38 @@ def run_ragas(records: list[dict], seed: int) -> pd.DataFrame:
         return pd.DataFrame()
 
     judge_llm, judge_emb = _build_ragas_judge()
-    ds = EvaluationDataset.from_list(
-        [
-            {
-                "user_input": r["question"],
-                "response": r["answer"],
-                "retrieved_contexts": r["contexts"],
-                # TODO: 도현님 정답 답변 레이블 데이터셋 준비되면 여기에 "reference" 키로
-                # 정답 답변 텍스트를 채워 넣을 것 (r["reference"] 등). 그러면 아래
-                # Context Precision/Recall도 metrics 리스트에 추가해 활성화 가능.
-            }
-            for r in targets
-        ]
+
+    def _run(rows: list[dict], samples: list[dict], metrics) -> pd.DataFrame:
+        out = ragas_evaluate(EvaluationDataset.from_list(samples), metrics=metrics).to_pandas()
+        out.insert(0, "qid", [r["qid"] for r in rows])
+        return out
+
+    df = _run(
+        targets,
+        [{"user_input": r["question"], "response": r["answer"],
+          "retrieved_contexts": r["contexts"]} for r in targets],
+        [Faithfulness(llm=judge_llm), ResponseRelevancy(llm=judge_llm, embeddings=judge_emb)],
     )
-    result = ragas_evaluate(
-        ds,
-        metrics=[
-            Faithfulness(llm=judge_llm),
-            ResponseRelevancy(llm=judge_llm, embeddings=judge_emb),
-            # ── 아래 2개는 ground_truth(정답 답변 텍스트)가 있어야 계산됨 ──
-            # Ko-miracl 자체엔 정답 문서 id만 있고 정답 답변 텍스트가 없어서 지금은 비활성.
-            # 도현님이 상위 LLM API로 레이블(정답 답변) 데이터셋을 만들면:
-            #   1. EvaluationDataset 각 항목에 "reference": r["reference"] 추가
-            #   2. 아래 두 줄 주석 해제
-            # LLMContextPrecisionWithReference(llm=judge_llm),  # 관련 문서가 상위 랭크에 오는지
-            # LLMContextRecall(llm=judge_llm),                  # 정답 근거가 검색된 문서에 있는지
-        ],
-    )
-    df = result.to_pandas()
+
+    # ── 4컬럼 지표: 정답 답변 라벨이 있는 질문만 ──
+    refs = load_references()
+    ref_targets = [r for r in targets if refs.get(r["qid"])]
+    if ref_targets:
+        print(f"  4컬럼 지표: {len(ref_targets)}/{len(targets)}건에 정답 라벨 있음")
+        ref_df = _run(
+            ref_targets,
+            [{"user_input": r["question"], "response": r["answer"],
+              "retrieved_contexts": r["contexts"], "reference": refs[r["qid"]]}
+             for r in ref_targets],
+            [LLMContextRecall(llm=judge_llm),
+             AnswerCorrectness(llm=judge_llm, embeddings=judge_emb)],
+        )
+        keep = ["qid"] + [c for c in REF_COLS if c in ref_df.columns]
+        df = df.merge(ref_df[keep], on="qid", how="left")
+    else:
+        print(f"  4컬럼 지표: 건너뜀 (정답 라벨 없음 — {REFERENCE_JSONL})")
+
     df.insert(0, "seed", seed)
-    df.insert(1, "qid", [r["qid"] for r in targets])
     return df
 
 
@@ -280,6 +317,10 @@ if __name__ == "__main__":
     print(f"생성 평가: 평가셋 {len(eval_qids)}개 × 2조건(answerable/무근거A) + 무근거B {len(OOD_QUESTIONS)}")
     print(f"평가 split: dev only (train은 파인튜닝 학습에 쓰이므로 누수 방지 차원에서 제외)")
     print(f"생성 seed: {GEN_SEEDS} | RAGAS 판정기: {RAGAS_JUDGE_MODEL}")
+    _refs = load_references()
+    print(f"정답 라벨: {len(_refs)}건 ({REFERENCE_JSONL})"
+          if _refs else
+          f"정답 라벨 없음 → 3컬럼 지표만 계산. 만들려면: python evaluation/build_reference_answers.py")
 
     # 무근거 A 컬렉션은 seed와 무관(임베딩 결정적) → 한 번만 만들어 재사용
     coll_unans = build_coll_unans()
@@ -291,15 +332,20 @@ if __name__ == "__main__":
     for i, s in enumerate(GEN_SEEDS):
         print(f"\n----- 생성·판정 (seed={s}) -----")
         recs = build_records(coll_unans, seed=s)
+        if i == 0:
+            records0 = recs
+            _save_jsonl(RECORDS_JSONL, recs)   # 판정 전에 저장 — 판정이 죽어도 생성분은 지킨다
+            print(f"생성 {len(recs)}건 저장: {RECORDS_JSONL}")
+
         # 정량 지표는 라벨이 확실한 세트만 (무근거 B 제외)
         per_seed_scores.append(evaluate_generation([r for r in recs if r["set"] in QUANT_SETS]))
 
         jdf = run_ragas(recs, s)
         judge_frames.append(jdf)
         if len(jdf):
-            per_seed_judge.append(jdf[JUDGE_COLS].mean().to_dict())
-        if i == 0:
-            records0 = recs
+            # 4컬럼 지표는 라벨이 있을 때만 컬럼이 생긴다 → 있는 것만 집계
+            cols = [c for c in JUDGE_COLS + REF_COLS if c in jdf.columns]
+            per_seed_judge.append(jdf[cols].mean().to_dict())
 
     print(f"\n===== [1층] 규칙 기반 주 지표 (대상: {', '.join(QUANT_SETS)}) =====")
     _report("1층", per_seed_scores)
@@ -322,6 +368,7 @@ if __name__ == "__main__":
     if per_seed_judge:
         _report("2층", per_seed_judge)
         all_judge = pd.concat(judge_frames, ignore_index=True)
+        # 4컬럼 지표의 NaN은 '라벨이 없어서 안 잰 것'이라 판정 실패가 아니다 → 3컬럼만 센다
         n_fail = int(all_judge[JUDGE_COLS].isna().sum().sum())
         Path(JUDGE_CSV).parent.mkdir(parents=True, exist_ok=True)
         all_judge.to_csv(JUDGE_CSV, index=False, encoding="utf-8-sig")
