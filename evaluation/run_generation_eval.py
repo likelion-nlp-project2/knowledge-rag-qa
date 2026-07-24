@@ -13,6 +13,7 @@
 #      B는 라벨이 불확실하므로 정량 집계에서 제외하고 따로 보고한다(아래 QUANT_SETS).
 # ============================================
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -190,8 +191,19 @@ def mean_std(dicts: list[dict]) -> dict:
 # 팀이 gpt-4o 로 정하면 이 한 줄만 바꾸면 된다(환경변수로도 덮어쓸 수 있음).
 RAGAS_JUDGE_MODEL = os.environ.get("RAGAS_JUDGE_MODEL", "gpt-5.4-mini")
 RAGAS_EMBED_MODEL = "text-embedding-3-small"   # answer_relevancy 계산에 필요
-JUDGE_CSV = "evaluation/data/ragas_scores.csv"
+JUDGE_CSV = "result/ragas_scores.csv"
 JUDGE_COLS = ["faithfulness", "answer_relevancy"]
+
+# 생성 답변 원본. Colab 세션이 끊기면 출력이 사라지는데 이건 API 비용이 든 산출물이라
+# 판정(RAGAS)보다 먼저 디스크에 떨군다 — 판정이 실패해도 재생성 없이 다시 채점할 수 있다.
+RECORDS_JSONL = "result/generations_eval.jsonl"
+
+
+def _save_jsonl(path: str, rows: list[dict]) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
 
 def _build_ragas_judge():
@@ -291,6 +303,11 @@ if __name__ == "__main__":
     for i, s in enumerate(GEN_SEEDS):
         print(f"\n----- 생성·판정 (seed={s}) -----")
         recs = build_records(coll_unans, seed=s)
+        if i == 0:
+            records0 = recs
+            _save_jsonl(RECORDS_JSONL, recs)   # 판정 전에 저장 — 판정이 죽어도 생성분은 지킨다
+            print(f"생성 {len(recs)}건 저장: {RECORDS_JSONL}")
+
         # 정량 지표는 라벨이 확실한 세트만 (무근거 B 제외)
         per_seed_scores.append(evaluate_generation([r for r in recs if r["set"] in QUANT_SETS]))
 
@@ -298,8 +315,6 @@ if __name__ == "__main__":
         judge_frames.append(jdf)
         if len(jdf):
             per_seed_judge.append(jdf[JUDGE_COLS].mean().to_dict())
-        if i == 0:
-            records0 = recs
 
     print(f"\n===== [1층] 규칙 기반 주 지표 (대상: {', '.join(QUANT_SETS)}) =====")
     _report("1층", per_seed_scores)
