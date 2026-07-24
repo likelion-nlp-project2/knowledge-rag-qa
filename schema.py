@@ -50,3 +50,4 @@ class PipelineConfig(BaseModel):
     min_score: float = 0.55     # final_score 기준 최소 관련도
     use_reranker: bool = True   # False면 rerank="none" (dense 순서 유지)
     prompt_style: str = "fewshot"   # "basic" | "fewshot"
+    rewrite_mode: str = "keyword"   # "none" | "keyword" | "hyde"

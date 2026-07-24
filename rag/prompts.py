@@ -43,8 +43,17 @@ SYSTEM_REWRITE = (
     "설명 없이 재작성된 질의 한 줄만 출력하세요."
 )
 
+# HyDE 재작성용 — 질문 대신 '문서처럼 생긴 가상 답변'을 만들어 dense 검색 질의로 쓴다
+SYSTEM_HYDE = (
+    "당신은 위키백과 스타일의 백과사전 문서를 작성하는 어시스턴트입니다. "
+    "사용자의 질문에 대한 답을 이미 안다고 가정하고, 그 답이 담긴 위키백과 문단을 "
+    "2~4문장으로 작성하세요. 실제로 맞는 답인지 모르더라도 사실처럼 서술하고, "
+    "'모르겠다'거나 질문을 되묻지 마세요. 다른 설명 없이 문단만 출력하세요."
+)
+
 # 하위 호환 별칭 (mode 기반 소비처: run_generation_eval, 노트북)
-SYSTEM_PROMPTS = {"strict": SYSTEM_GEN}
+# "fewshot"도 시스템 규칙은 동일 — 차이는 user 메시지의 few-shot 예시 유무뿐
+SYSTEM_PROMPTS = {"strict": SYSTEM_GEN, "basic": SYSTEM_GEN, "fewshot": SYSTEM_GEN}
 
 
 # ─────────────────────────────────────────────────────────────

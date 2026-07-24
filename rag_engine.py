@@ -20,7 +20,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from rag.llm import chat as _chat
-from rag.prompts import PROMPT_BUILDERS, SYSTEM_REWRITE
+from rag.prompts import PROMPT_BUILDERS, SYSTEM_HYDE, SYSTEM_REWRITE
 from schema import ChunkMetadata, PipelineConfig, RAGResponse, RetrievedChunk
 
 load_dotenv()
@@ -32,6 +32,15 @@ SEARCH_API_URL = os.getenv("SEARCH_API_URL", "http://localhost:8080").rstrip("/"
 def rewrite_query(question: str) -> str:
     user = f"사용자 질문: {question}\n재작성된 검색 질의:"
     return _chat(SYSTEM_REWRITE, user, max_tokens=64, temperature=0.0)
+
+
+def hyde_rewrite(question: str) -> str:
+    """HyDE: 질문에 대한 가상의 답변 문서를 LLM으로 생성해 검색 질의로 쓴다 (rag/generation.py와 동일 방식)."""
+    user = f"질문: {question}\n가상 답변 문단:"
+    return _chat(SYSTEM_HYDE, user, max_tokens=200, temperature=0.0)
+
+
+REWRITE_FNS = {"none": None, "keyword": rewrite_query, "hyde": hyde_rewrite}
 
 
 # ── ④ 프롬프트 입력 변환 (조립은 rag.prompts.PROMPT_BUILDERS) ──
@@ -94,8 +103,9 @@ def run_pipeline(query: str, cfg: PipelineConfig) -> RAGResponse:
     times = {}
 
     t0 = time.perf_counter()
+    rewrite_fn = REWRITE_FNS.get(cfg.rewrite_mode)
     try:
-        rq = rewrite_query(query)
+        rq = rewrite_fn(query) if rewrite_fn else None
     except requests.RequestException:
         rq = None   # LLM이 죽어 있어도 검색까지는 보여준다
     times["rewrite"] = round(time.perf_counter() - t0, 3)

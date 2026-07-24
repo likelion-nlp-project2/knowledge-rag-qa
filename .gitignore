@@ -10,3 +10,12 @@ venv/
 chroma_db/
 evaluation/data/*
 !evaluation/data/.gitkeep
+# 축소 코퍼스(107MB) — GitHub 100MB 제한 초과라 커밋 금지. Drive/로컬로 공유.
+data/*.jsonl
+
+# 실험 결과물 (generate_answers.py / run_ragas_eval.py 산출물) — 각자 로컬에서 재생성
+result/
+
+# 로컬 전용 코퍼스/메타데이터 산출물 (수백MB~1GB대, 재생성 가능)
+data/*
+!data/.gitkeep
