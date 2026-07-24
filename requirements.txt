@@ -8,8 +8,11 @@ sentence-transformers==3.0.1
 transformers==4.44.2
 tokenizers>=0.19,<0.20
 huggingface-hub>=0.24,<1.0
-# datasets 5.x 는 huggingface-hub>=1 을 요구하므로 2.x 로 고정.
-datasets==2.21.0
+# datasets 5.x 는 huggingface-hub>=1 을 요구하므로 상한을 둔다.
+# 하한은 4.0 — ragas>=0.4 가 datasets>=4.0.0 을 요구해서, 기존 핀(==2.21.0)으로는
+# `pip install -r requirements.txt` 가 ragas 와 충돌한다(RAGAS 평가가 아예 안 깔림).
+# 4.x 는 huggingface-hub<1 과 함께 동작하는 것을 확인했다(4.5.0 + hub 0.36.2).
+datasets>=4,<5
 pandas
 numpy<2
 # scipy>=1.14 는 numpy>=2 를 요구해서 numpy<2 와 충돌한다(datasets 스트리밍 로드 시 AttributeError).
@@ -19,7 +22,12 @@ fastapi
 uvicorn[standard]
 # 데모 앱 (app.py)
 streamlit
-ragas
-langchain-community
-# RAGAS judge(GPT-4o) 연결용
+# RAGAS 평가 (evaluation/run_generation_eval.py, evaluation/run_ragas_eval.py)
+# 0.4 에서 API가 바뀌었다(EvaluationDataset + 클래스형 지표). 두 스크립트 모두 0.4 기준.
+ragas>=0.4,<0.5
+# langchain-community 0.4 에서 chat_models.vertexai 가 제거됐는데 ragas 0.4.3 이 아직
+# 이를 import 한다 -> 0.4 를 깔면 `import ragas` 자체가 ModuleNotFoundError 로 죽는다.
+# RAGAS 실행 전에 반드시 이 핀으로 재설치할 것: pip install -r requirements.txt
+langchain-community>=0.3,<0.4
+# RAGAS judge 연결용
 langchain-openai
